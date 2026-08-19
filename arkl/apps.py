@@ -2,5 +2,5 @@ from django.apps import AppConfig
 
 
 class ArklConfig(AppConfig):
-    default_auto_field = 'django.db.models.BigAutoField'
-    name = 'arkl'
+    default_auto_field = "django.db.models.BigAutoField"
+    name = "arkl"
