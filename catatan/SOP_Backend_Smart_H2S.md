@@ -139,19 +139,19 @@ Store Reading
 
 ## Pekerjaan
 
-- [ ] Membuat model `Device`.
-- [ ] Membuat model `H2SReading`.
-- [ ] Membuat `mqtt_ingestion.py`.
-- [ ] Subscribe ke topic telemetry yang digunakan Layer 1.
-- [ ] Parse payload JSON.
-- [ ] Validasi field wajib.
-- [ ] Tolak payload tidak valid.
-- [ ] Simpan payload valid ke database.
-- [ ] Catat `received_at`.
-- [ ] Catat apakah data `simulated=true/false`.
-- [ ] Tambahkan MQTT event logging.
-- [ ] Tangani reconnect MQTT.
-- [ ] Pastikan error MQTT tidak mematikan Django/API.
+- [X] Membuat model `Device`.
+- [X] Membuat model `H2SReading`.
+- [X] Membuat `mqtt_ingestion.py`.
+- [X] Subscribe ke topic telemetry yang digunakan Layer 1.
+- [X] Parse payload JSON.
+- [X] Validasi field wajib.
+- [X] Tolak payload tidak valid.
+- [X] Simpan payload valid ke database.
+- [X] Catat `received_at`.
+- [X] Catat apakah data `simulated=true/false`.
+- [X] Tambahkan MQTT event logging.
+- [X] Tangani reconnect MQTT.
+- [X] Pastikan error MQTT tidak mematikan Django/API.
 
 ## Payload Minimum
 
@@ -178,13 +178,13 @@ Store Reading
 
 ## Definition of Done
 
-- [ ] Wokwi publish telemetry.
-- [ ] React tetap menerima telemetry seperti sebelumnya.
-- [ ] Backend menerima telemetry yang sama.
-- [ ] Reading valid masuk SQLite.
-- [ ] Payload invalid ditolak dengan aman.
-- [ ] Disconnect/reconnect broker dapat ditangani.
-- [ ] Event MQTT tercatat di log.
+- [X] Wokwi publish telemetry.
+- [X] React tetap menerima telemetry seperti sebelumnya.
+- [X] Backend menerima telemetry yang sama.
+- [X] Reading valid masuk SQLite.
+- [X] Payload invalid ditolak dengan aman.
+- [X] Disconnect/reconnect broker dapat ditangani.
+- [X] Event MQTT tercatat di log.
 - [X] Tidak ada dependency Layer 3 pada modul MQTT.
 
 ---
@@ -253,23 +253,23 @@ Nama field dan parameter ARKL final **belum boleh dianggap final** sebelum rumus
 
 ## Pekerjaan
 
-- [ ] Definisikan model.
-- [ ] Definisikan relasi antar-model.
-- [ ] Tambahkan constraint sederhana.
-- [ ] Buat migrations.
-- [ ] Jalankan migration.
-- [ ] Daftarkan model penting di Django Admin.
-- [ ] Buat validasi domain dasar.
-- [ ] Jangan masukkan business logic berat ke `models.py`.
+- [X] Definisikan model.
+- [X] Definisikan relasi antar-model.
+- [X] Tambahkan constraint sederhana.
+- [X] Buat migrations.
+- [X] Jalankan migration.
+- [X] Daftarkan model penting di Django Admin.
+- [X] Buat validasi domain dasar.
+- [X] Jangan masukkan business logic berat ke `models.py`.
 
 ## Definition of Done
 
-- [ ] Semua model dapat dimigrasikan.
-- [ ] Relasi data jelas.
-- [ ] Data telemetry dapat dikaitkan dengan device.
-- [ ] Exposure profile dapat dikaitkan dengan worker.
-- [ ] Data dummy dapat dibuat dan dibaca ulang.
-- [ ] Tidak ada rumus ARKL di model.
+- [X] Semua model dapat dimigrasikan.
+- [X] Relasi data jelas.
+- [X] Data telemetry dapat dikaitkan dengan device.
+- [X] Exposure profile dapat dikaitkan dengan worker.
+- [X] Data dummy dapat dibuat dan dibaca ulang.
+- [X] Tidak ada rumus ARKL di model.
 
 ---
 
@@ -309,23 +309,23 @@ Model / ORM
 
 ## Pekerjaan
 
-- [ ] Membuat serializer.
-- [ ] Membuat API views/viewsets.
-- [ ] Membuat URL versioning `/api/v1/`.
-- [ ] Validasi request.
-- [ ] Pagination untuk daftar reading.
-- [ ] Filtering dasar jika dibutuhkan.
-- [ ] Dokumentasikan endpoint melalui OpenAPI.
-- [ ] Pastikan response konsisten.
+- [X] Membuat serializer.
+- [X] Membuat API views/viewsets.
+- [X] Membuat URL versioning `/api/v1/`.
+- [X] Validasi request.
+- [X] Pagination untuk daftar reading.
+- [X] Filtering dasar jika dibutuhkan.
+- [X] Dokumentasikan endpoint melalui OpenAPI.
+- [X] Pastikan response konsisten.
 
 ## Definition of Done
 
-- [ ] React dapat mengambil latest H₂S reading melalui REST API.
-- [ ] Worker dapat dibuat.
-- [ ] Exposure profile dapat dibuat dan diperbarui.
-- [ ] Invalid input menghasilkan response 4xx yang jelas.
-- [ ] API docs dapat dibuka.
-- [ ] Views tidak berisi rumus ARKL.
+- [X] React dapat mengambil latest H₂S reading melalui REST API.
+- [X] Worker dapat dibuat.
+- [X] Exposure profile dapat dibuat dan diperbarui.
+- [X] Invalid input menghasilkan response 4xx yang jelas.
+- [X] API docs dapat dibuka.
+- [X] Views tidak berisi rumus ARKL.
 
 ---
 

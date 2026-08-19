@@ -1,5 +1,6 @@
-﻿import os
+import os
 from pathlib import Path
+
 from dotenv import load_dotenv
 
 BASE_DIR = Path(__file__).resolve().parent.parent
@@ -7,7 +8,11 @@ load_dotenv(BASE_DIR / ".env")
 
 SECRET_KEY = os.getenv("DJANGO_SECRET_KEY", "unsafe-dev-key-change-me")
 DEBUG = os.getenv("DJANGO_DEBUG", "True").lower() == "true"
-ALLOWED_HOSTS = [h.strip() for h in os.getenv("DJANGO_ALLOWED_HOSTS", "127.0.0.1,localhost").split(",") if h.strip()]
+ALLOWED_HOSTS = [
+    h.strip()
+    for h in os.getenv("DJANGO_ALLOWED_HOSTS", "127.0.0.1,localhost").split(",")
+    if h.strip()
+]
 
 INSTALLED_APPS = [
     "django.contrib.admin",
@@ -16,11 +21,9 @@ INSTALLED_APPS = [
     "django.contrib.sessions",
     "django.contrib.messages",
     "django.contrib.staticfiles",
-
     "rest_framework",
     "corsheaders",
     "drf_spectacular",
-
     "devices",
     "exposure",
     "arkl",
@@ -30,19 +33,15 @@ INSTALLED_APPS = [
 
 MIDDLEWARE = [
     "django.middleware.security.SecurityMiddleware",
-
     "core.middleware.request_id.RequestIDMiddleware",
     "core.middleware.request_logging.RequestLoggingMiddleware",
     "core.middleware.performance.PerformanceMiddleware",
-
     "django.contrib.sessions.middleware.SessionMiddleware",
     "corsheaders.middleware.CorsMiddleware",
     "django.middleware.common.CommonMiddleware",
     "django.middleware.csrf.CsrfViewMiddleware",
     "django.contrib.auth.middleware.AuthenticationMiddleware",
-
     "core.middleware.security_audit.SecurityAuditMiddleware",
-
     "django.contrib.messages.middleware.MessageMiddleware",
     "django.middleware.clickjacking.XFrameOptionsMiddleware",
 ]
@@ -74,7 +73,11 @@ DATABASES = {
 }
 
 AUTH_PASSWORD_VALIDATORS = [
-    {"NAME": "django.contrib.auth.password_validation.UserAttributeSimilarityValidator"},
+    {
+        "NAME": (
+            "django.contrib.auth.password_validation.UserAttributeSimilarityValidator"
+        )
+    },
     {"NAME": "django.contrib.auth.password_validation.MinimumLengthValidator"},
     {"NAME": "django.contrib.auth.password_validation.CommonPasswordValidator"},
     {"NAME": "django.contrib.auth.password_validation.NumericPasswordValidator"},
@@ -94,12 +97,9 @@ CORS_ALLOWED_ORIGINS = [
 ]
 
 REST_FRAMEWORK = {
-    "DEFAULT_SCHEMA_CLASS": "drf_spectacular.openapi.AutoSchema",
-}
-
-SPECTACULAR_SETTINGS = {
-    "TITLE": "Smart H2S Backend API",
-    "VERSION": "1.0.0",
+    "DEFAULT_SCHEMA_CLASS": ("drf_spectacular.openapi.AutoSchema"),
+    "DEFAULT_PAGINATION_CLASS": ("rest_framework.pagination.PageNumberPagination"),
+    "PAGE_SIZE": 50,
 }
 
 SLOW_REQUEST_THRESHOLD_MS = 500
@@ -110,27 +110,25 @@ LOG_DIR.mkdir(exist_ok=True)
 LOGGING = {
     "version": 1,
     "disable_existing_loggers": False,
-
     "filters": {
         "request_context": {
             "()": "core.observability.logging.RequestContextFilter",
         },
     },
-
     "formatters": {
         "verbose": {
-            "format": "{asctime} {levelname} request_id={request_id} logger={name} {message}",
+            "format": (
+                "{asctime} {levelname} request_id={request_id} logger={name} {message}"
+            ),
             "style": "{",
         },
     },
-
     "handlers": {
         "console": {
             "class": "logging.StreamHandler",
             "formatter": "verbose",
             "filters": ["request_context"],
         },
-
         "application_file": {
             "class": "logging.handlers.RotatingFileHandler",
             "filename": LOG_DIR / "application.log",
@@ -139,7 +137,6 @@ LOGGING = {
             "formatter": "verbose",
             "filters": ["request_context"],
         },
-
         "error_file": {
             "class": "logging.handlers.RotatingFileHandler",
             "filename": LOG_DIR / "error.log",
@@ -149,7 +146,6 @@ LOGGING = {
             "formatter": "verbose",
             "filters": ["request_context"],
         },
-
         "security_file": {
             "class": "logging.handlers.RotatingFileHandler",
             "filename": LOG_DIR / "security.log",
@@ -158,7 +154,6 @@ LOGGING = {
             "formatter": "verbose",
             "filters": ["request_context"],
         },
-
         "performance_file": {
             "class": "logging.handlers.RotatingFileHandler",
             "filename": LOG_DIR / "performance.log",
@@ -168,26 +163,22 @@ LOGGING = {
             "filters": ["request_context"],
         },
     },
-
     "loggers": {
         "smart_h2s": {
             "handlers": ["console", "application_file", "error_file"],
             "level": "INFO",
             "propagate": False,
         },
-
         "smart_h2s.security": {
             "handlers": ["console", "security_file"],
             "level": "INFO",
             "propagate": False,
         },
-
         "smart_h2s.performance": {
             "handlers": ["console", "performance_file"],
             "level": "WARNING",
             "propagate": False,
         },
-
         "django.request": {
             "handlers": ["console", "error_file"],
             "level": "ERROR",

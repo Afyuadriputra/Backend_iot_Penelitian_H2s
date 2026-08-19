@@ -78,9 +78,7 @@ def ingest_mqtt_message(
             telemetry.device_id,
         )
 
-        raise MQTTIngestionError(
-            "Failed to store MQTT telemetry."
-        ) from exc
+        raise MQTTIngestionError("Failed to store MQTT telemetry.") from exc
 
     logger.info(
         (
