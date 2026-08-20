@@ -1,6 +1,6 @@
 from decimal import Decimal
 
-from arkl.services.constants import H2S_RFC_MG_M3
+from arkl.services.constants import H2S_RFC
 from arkl.services.validation import (
     ARKLValidationError,
     to_decimal,
@@ -9,23 +9,41 @@ from arkl.services.validation import (
 
 def calculate_rq(
     *,
-    exposure_concentration_mg_m3,
-    rfc=H2S_RFC_MG_M3,
+    intake,
+    rfc=H2S_RFC,
 ) -> Decimal:
-    exposure_concentration = to_decimal(
-        exposure_concentration_mg_m3,
-        "exposure_concentration_mg_m3",
+    """
+    Calculate Risk Quotient.
+
+    Formula:
+
+        RQ = Intake / RfC
+
+    RQ <= 1:
+        Within reference level.
+
+    RQ > 1:
+        Above reference level.
+    """
+
+    intake_value = to_decimal(
+        intake,
+        "intake",
     )
 
-    reference_concentration = to_decimal(
+    reference_value = to_decimal(
         rfc,
         "rfc",
     )
 
-    if exposure_concentration < 0:
-        raise ARKLValidationError("exposure_concentration_mg_m3 cannot be negative.")
+    if intake_value < 0:
+        raise ARKLValidationError(
+            "intake cannot be negative."
+        )
 
-    if reference_concentration <= 0:
-        raise ARKLValidationError("rfc must be greater than zero.")
+    if reference_value <= 0:
+        raise ARKLValidationError(
+            "rfc must be greater than zero."
+        )
 
-    return exposure_concentration / reference_concentration
+    return intake_value / reference_value

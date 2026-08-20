@@ -607,6 +607,268 @@ paths:
               schema:
                 $ref: '#/components/schemas/H2SReading'
           description: ''
+  /api/v1/research/alert-summary/:
+    get:
+      operationId: v1_research_alert_summary_retrieve
+      tags:
+      - v1
+      security:
+      - cookieAuth: []
+      - basicAuth: []
+      - {}
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AlertSummary'
+          description: ''
+  /api/v1/research/arkl-results/:
+    get:
+      operationId: v1_research_arkl_results_retrieve
+      parameters:
+      - in: query
+        name: calculation_type
+        schema:
+          enum:
+          - REALTIME
+          - HISTORICAL
+          type: string
+          minLength: 1
+        description: |-
+          * `REALTIME` - REALTIME
+          * `HISTORICAL` - HISTORICAL
+      - in: query
+        name: calculation_version
+        schema:
+          type: string
+          default: 2.0.0-MVP
+          minLength: 1
+      - in: query
+        name: end
+        schema:
+          type: string
+          format: date-time
+      - in: query
+        name: source_simulated
+        schema:
+          type: boolean
+          nullable: true
+      - in: query
+        name: start
+        schema:
+          type: string
+          format: date-time
+      - in: query
+        name: worker_code
+        schema:
+          type: string
+          minLength: 1
+      tags:
+      - v1
+      security:
+      - cookieAuth: []
+      - basicAuth: []
+      - {}
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ARKLResearchResponse'
+          description: ''
+  /api/v1/research/export/arkl.csv:
+    get:
+      operationId: v1_research_export_arkl.csv_retrieve
+      parameters:
+      - in: query
+        name: calculation_type
+        schema:
+          enum:
+          - REALTIME
+          - HISTORICAL
+          type: string
+          minLength: 1
+        description: |-
+          * `REALTIME` - REALTIME
+          * `HISTORICAL` - HISTORICAL
+      - in: query
+        name: calculation_version
+        schema:
+          type: string
+          default: 2.0.0-MVP
+          minLength: 1
+      - in: query
+        name: end
+        schema:
+          type: string
+          format: date-time
+      - in: query
+        name: source_simulated
+        schema:
+          type: boolean
+          nullable: true
+      - in: query
+        name: start
+        schema:
+          type: string
+          format: date-time
+      - in: query
+        name: worker_code
+        schema:
+          type: string
+          minLength: 1
+      tags:
+      - v1
+      security:
+      - cookieAuth: []
+      - basicAuth: []
+      - {}
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: string
+                format: binary
+          description: ''
+  /api/v1/research/exposure-summary/:
+    get:
+      operationId: v1_research_exposure_summary_retrieve
+      tags:
+      - v1
+      security:
+      - cookieAuth: []
+      - basicAuth: []
+      - {}
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ExposureSummary'
+          description: ''
+  /api/v1/research/h2s-summary/:
+    get:
+      operationId: v1_research_h2s_summary_retrieve
+      parameters:
+      - in: query
+        name: device_code
+        schema:
+          type: string
+          minLength: 1
+      - in: query
+        name: end
+        schema:
+          type: string
+          format: date-time
+      - in: query
+        name: source_simulated
+        schema:
+          type: boolean
+          nullable: true
+      - in: query
+        name: start
+        schema:
+          type: string
+          format: date-time
+      tags:
+      - v1
+      security:
+      - cookieAuth: []
+      - basicAuth: []
+      - {}
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/H2SSummary'
+          description: ''
+  /api/v1/research/h2s-trends/:
+    get:
+      operationId: v1_research_h2s_trends_retrieve
+      parameters:
+      - in: query
+        name: device_code
+        schema:
+          type: string
+          minLength: 1
+      - in: query
+        name: end
+        schema:
+          type: string
+          format: date-time
+      - in: query
+        name: interval
+        schema:
+          enum:
+          - raw
+          - hour
+          - day
+          type: string
+          default: day
+          minLength: 1
+        description: |-
+          * `raw` - raw
+          * `hour` - hour
+          * `day` - day
+      - in: query
+        name: source_simulated
+        schema:
+          type: boolean
+          nullable: true
+      - in: query
+        name: start
+        schema:
+          type: string
+          format: date-time
+      tags:
+      - v1
+      security:
+      - cookieAuth: []
+      - basicAuth: []
+      - {}
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/H2STrendResponse'
+          description: ''
+  /api/v1/research/risk-distribution/:
+    get:
+      operationId: v1_research_risk_distribution_retrieve
+      parameters:
+      - in: query
+        name: calculation_version
+        schema:
+          type: string
+          default: 2.0.0-MVP
+          minLength: 1
+      - in: query
+        name: source_simulated
+        schema:
+          type: boolean
+          nullable: true
+      - in: query
+        name: worker_code
+        schema:
+          type: string
+          minLength: 1
+      tags:
+      - v1
+      security:
+      - cookieAuth: []
+      - basicAuth: []
+      - {}
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RiskDistribution'
+          description: ''
   /api/v1/workers/:
     get:
       operationId: v1_workers_list
@@ -682,6 +944,103 @@ paths:
           description: ''
 components:
   schemas:
+    ARKLResearchResponse:
+      type: object
+      properties:
+        calculation_version:
+          type: string
+        count:
+          type: integer
+        results:
+          type: array
+          items:
+            $ref: '#/components/schemas/ARKLResearchResult'
+      required:
+      - calculation_version
+      - count
+      - results
+    ARKLResearchResult:
+      type: object
+      properties:
+        id:
+          type: integer
+        worker_code:
+          type: string
+        calculation_type:
+          type: string
+        concentration_ppm:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,8}(?:\.\d{0,6})?$
+        concentration_mg_m3:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,8}(?:\.\d{0,6})?$
+        exposure_concentration_mg_m3:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,8}(?:\.\d{0,6})?$
+          nullable: true
+        averaging_time:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,10}(?:\.\d{0,4})?$
+          nullable: true
+        intake:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,12}(?:\.\d{0,12})?$
+          nullable: true
+        rfc:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,6}(?:\.\d{0,8})?$
+        rq:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,12}(?:\.\d{0,12})?$
+        interpretation:
+          type: string
+        calculation_version:
+          type: string
+        source_simulated:
+          type: boolean
+        reading_id:
+          type: integer
+          nullable: true
+        period_start:
+          type: string
+          format: date-time
+          nullable: true
+        period_end:
+          type: string
+          format: date-time
+          nullable: true
+        reading_count:
+          type: integer
+          nullable: true
+        created_at:
+          type: string
+          format: date-time
+      required:
+      - averaging_time
+      - calculation_type
+      - calculation_version
+      - concentration_mg_m3
+      - concentration_ppm
+      - created_at
+      - exposure_concentration_mg_m3
+      - id
+      - intake
+      - interpretation
+      - period_end
+      - period_start
+      - reading_count
+      - reading_id
+      - rfc
+      - rq
+      - source_simulated
+      - worker_code
     ARKLResult:
       type: object
       properties:
@@ -966,6 +1325,39 @@ components:
         * `MEDIUM` - MEDIUM
         * `HIGH` - HIGH
         * `CRITICAL` - CRITICAL
+    AlertSummary:
+      type: object
+      properties:
+        total_count:
+          type: integer
+        simulated_count:
+          type: integer
+        physical_count:
+          type: integer
+        by_level:
+          type: array
+          items:
+            $ref: '#/components/schemas/CountItem'
+        by_status:
+          type: array
+          items:
+            $ref: '#/components/schemas/CountItem'
+        by_risk_status:
+          type: array
+          items:
+            $ref: '#/components/schemas/CountItem'
+        by_rule_version:
+          type: array
+          items:
+            $ref: '#/components/schemas/CountItem'
+      required:
+      - by_level
+      - by_risk_status
+      - by_rule_version
+      - by_status
+      - physical_count
+      - simulated_count
+      - total_count
     CalculationTypeEnum:
       enum:
       - REALTIME
@@ -974,6 +1366,16 @@ components:
       description: |-
         * `REALTIME` - Realtime
         * `HISTORICAL` - Historical
+    CountItem:
+      type: object
+      properties:
+        value:
+          type: string
+        count:
+          type: integer
+      required:
+      - count
+      - value
     Device:
       type: object
       properties:
@@ -1073,6 +1475,38 @@ components:
       - updated_at
       - worker
       - worker_code
+    ExposureSummary:
+      type: object
+      properties:
+        worker_count:
+          type: integer
+        average_body_weight:
+          type: number
+          format: double
+          nullable: true
+        average_exposure_time:
+          type: number
+          format: double
+          nullable: true
+        average_exposure_frequency:
+          type: number
+          format: double
+          nullable: true
+        average_exposure_duration:
+          type: number
+          format: double
+          nullable: true
+        average_inhalation_rate:
+          type: number
+          format: double
+          nullable: true
+      required:
+      - average_body_weight
+      - average_exposure_duration
+      - average_exposure_frequency
+      - average_exposure_time
+      - average_inhalation_rate
+      - worker_count
     H2SReading:
       type: object
       properties:
@@ -1124,6 +1558,58 @@ components:
       - simulated
       - status
       - uptime_ms
+    H2SSummary:
+      type: object
+      properties:
+        sample_count:
+          type: integer
+        minimum_ppm:
+          type: number
+          format: double
+          nullable: true
+        maximum_ppm:
+          type: number
+          format: double
+          nullable: true
+        average_ppm:
+          type: number
+          format: double
+          nullable: true
+        first_reading_at:
+          type: string
+          format: date-time
+          nullable: true
+        last_reading_at:
+          type: string
+          format: date-time
+          nullable: true
+        simulated_count:
+          type: integer
+        physical_count:
+          type: integer
+        device_count:
+          type: integer
+      required:
+      - average_ppm
+      - device_count
+      - first_reading_at
+      - last_reading_at
+      - maximum_ppm
+      - minimum_ppm
+      - physical_count
+      - sample_count
+      - simulated_count
+    H2STrendResponse:
+      type: object
+      properties:
+        interval:
+          $ref: '#/components/schemas/IntervalEnum'
+        series:
+          type: array
+          items: {}
+      required:
+      - interval
+      - series
     HistoricalARKLRequest:
       type: object
       properties:
@@ -1142,6 +1628,16 @@ components:
       - end_time
       - start_time
       - worker
+    IntervalEnum:
+      enum:
+      - raw
+      - hour
+      - day
+      type: string
+      description: |-
+        * `raw` - raw
+        * `hour` - hour
+        * `day` - day
     PaginatedARKLResultList:
       type: object
       required:
@@ -1334,6 +1830,35 @@ components:
       required:
       - device
       - worker
+    RiskDistribution:
+      type: object
+      properties:
+        calculation_version:
+          type: string
+        total_count:
+          type: integer
+        distribution:
+          type: array
+          items:
+            $ref: '#/components/schemas/RiskDistributionItem'
+      required:
+      - calculation_version
+      - distribution
+      - total_count
+    RiskDistributionItem:
+      type: object
+      properties:
+        interpretation:
+          type: string
+        count:
+          type: integer
+        percentage:
+          type: number
+          format: double
+      required:
+      - count
+      - interpretation
+      - percentage
     RiskStatusEnum:
       enum:
       - NO_ACTION_REQUIRED

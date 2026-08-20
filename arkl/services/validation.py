@@ -85,19 +85,26 @@ def validate_arkl_inputs(
     if weight <= 0:
         raise ARKLValidationError("body_weight must be greater than zero.")
 
-    if not (Decimal("0") <= exposure_time_value <= HOURS_PER_DAY):
-        raise ARKLValidationError("exposure_time must be between 0 and 24 hour/day.")
+    if not (Decimal("0") < exposure_time_value <= HOURS_PER_DAY):
+         raise ARKLValidationError(
+        "exposure_time must be greater than 0 "
+        "and at most 24 hour/day."
+    )
 
-    if not (Decimal("0") <= exposure_frequency_value <= DAYS_PER_YEAR):
+    if not (
+    Decimal("0") < exposure_frequency_value <= DAYS_PER_YEAR ):
         raise ARKLValidationError(
-            "exposure_frequency must be between 0 and 365 day/year."
-        )
+        "exposure_frequency must be greater than 0 "
+        "and at most 365 day/year."
+    )
 
     if duration <= 0:
         raise ARKLValidationError("exposure_duration must be greater than zero.")
 
-    if rate < 0:
-        raise ARKLValidationError("inhalation_rate cannot be negative.")
+    if rate <= 0:
+        raise ARKLValidationError(
+        "inhalation_rate must be greater than zero."
+    )
 
     return ARKLInputData(
         concentration_ppm=concentration,

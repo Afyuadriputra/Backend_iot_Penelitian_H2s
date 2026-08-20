@@ -205,9 +205,15 @@ def test_historical_risk_uses_mean_concentration():
         readings.append(reading)
 
     for index, reading in enumerate(readings):
-        timestamp = now - timedelta(minutes=30 - (index * 10))
+        timestamp = now - timedelta(
+            minutes=30 - (index * 10)
+        )
 
-        H2SReading.objects.filter(pk=reading.pk).update(received_at=timestamp)
+        H2SReading.objects.filter(
+            pk=reading.pk,
+        ).update(
+            received_at=timestamp,
+        )
 
     result = calculate_historical_risk(
         worker=worker,
@@ -217,13 +223,26 @@ def test_historical_risk_uses_mean_concentration():
     )
 
     assert result.pk is not None
+
+    # Historical result tidak terkait satu reading tertentu,
+    # karena memakai rata-rata beberapa reading.
     assert result.reading is None
+
     assert result.calculation_type == "HISTORICAL"
     assert result.reading_count == 3
+
     assert result.concentration_ppm == Decimal("20")
     assert result.concentration_mg_m3 == Decimal("28.00")
-    assert result.source_simulated is True
 
+    # ARKL v2 intake-based.
+    assert result.exposure_concentration_mg_m3 is None
+    assert result.averaging_time == Decimal("3650")
+    assert result.intake is not None
+    assert result.intake > 0
+    assert result.rq > 0
+
+    assert result.source_simulated is True
+    assert result.calculation_version == "2.0.0-MVP"
 
 @pytest.mark.django_db
 def test_historical_requires_readings():

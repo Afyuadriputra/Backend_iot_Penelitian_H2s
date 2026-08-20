@@ -1084,17 +1084,30 @@ Jika semuanya terpenuhi:
 PHASE 4 = DONE
 ```
 
-
-
-
 ---
-
-
-
 
 # 15. Phase 5 — Layer 4 Alert & Risk Management
 
-## Tujuan
+## Status
+
+```text
+PHASE 5 STATUS:
+MVP OPERATIONAL LOCK — IMPLEMENTED & VERIFIED
+
+ALERT_RULE_VERSION:
+1.0.0-MVP
+
+ARKL CALCULATION VERSION:
+1.1.0-MVP
+```
+
+Phase 5 telah menyelesaikan Layer 4 yang menggabungkan kondisi lingkungan dan hasil Smart ARKL menjadi alert deterministic, rekomendasi pengendalian risiko, persistence, deduplication, escalation, lifecycle, REST API, dan integrasi E2E.
+
+Core Phase 5 tidak menggunakan AI untuk menentukan keputusan risiko.
+
+---
+
+## 15.1 Tujuan
 
 Layer 4 bertanggung jawab menggabungkan:
 
@@ -1114,20 +1127,25 @@ Tujuan utama Phase 5 adalah menghasilkan:
 
 - status alert yang deterministic;
 - severity yang terdokumentasi;
-- rekomendasi pengendalian risiko;
+- risk-management status yang deterministic;
+- rekomendasi pengendalian risiko berbasis rule;
 - lifecycle alert;
 - mekanisme pencegahan duplicate/spam alert;
-- output yang dapat digunakan langsung oleh React.
+- mekanisme escalation;
+- audit trail melalui snapshot data;
+- REST API yang dapat digunakan langsung oleh React;
+- provenance untuk simulated data;
+- output yang dapat diuji secara unit, integration, API, dan E2E.
 
-Layer ini tidak melakukan perhitungan ulang ARKL.
+Layer ini **tidak melakukan perhitungan ulang ARKL**.
 
 ---
 
-## 15.1 Scientific Separation
+# 15.2 Scientific Separation
 
-Layer 4 menerima dua dimensi yang berbeda.
+Layer 4 menerima dua dimensi berbeda.
 
-### Environmental Dimension
+## Environmental Dimension
 
 Source:
 
@@ -1152,9 +1170,13 @@ Dimensi ini menjawab:
 "Bagaimana kondisi H₂S lingkungan saat ini?"
 ```
 
+Layer 4 tidak mendefinisikan ulang threshold ppm Layer 1.
+
+Environmental state berasal dari Layer 1 dan kemudian dinormalisasi ke vocabulary operasional Layer 4.
+
 ---
 
-### Risk Dimension
+## Risk Dimension
 
 Source:
 
@@ -1179,14 +1201,20 @@ Dimensi ini menjawab:
 dengan reference concentration?"
 ```
 
----
+Interpretasi ARKL yang digunakan:
 
-Kedua dimensi tidak boleh dianggap identik.
+```text
+WITHIN_REFERENCE_LEVEL
+
+ABOVE_REFERENCE_LEVEL
+```
+
+Kedua dimensi tidak dianggap identik.
 
 Contoh yang valid:
 
 ```text
-Environmental status:
+Environmental:
 NORMAL
 
 ARKL:
@@ -1203,11 +1231,11 @@ exposure time
 exposure frequency
 ```
 
-dan tidak hanya melihat konsentrasi sesaat.
+dan bukan hanya kondisi sesaat.
 
 ---
 
-## 15.2 Input
+# 15.3 Input Contract
 
 Conceptual input:
 
@@ -1219,7 +1247,7 @@ ARKLResult
 Alert Engine
 ```
 
-Minimum input environmental:
+Minimum environmental input:
 
 ```text
 ppm
@@ -1229,7 +1257,7 @@ device
 simulated
 ```
 
-Minimum input risk:
+Minimum risk input:
 
 ```text
 rq
@@ -1239,33 +1267,108 @@ calculation_version
 source_simulated
 ```
 
-Alert Engine tidak boleh menerima client-calculated severity sebagai source of truth.
+Untuk realtime alert:
+
+```text
+ARKLResult.calculation_type
+=
+REALTIME
+```
+
+dan:
+
+```text
+ARKLResult.reading
+```
+
+harus mengacu pada `H2SReading` yang valid.
+
+Historical ARKL tidak eligible untuk realtime alert creation.
 
 ---
 
-## 15.3 Architecture
+# 15.4 Source of Truth
 
-Target structure:
+Alert Engine tidak menerima client-calculated decision sebagai source of truth.
+
+Client tidak menentukan:
+
+```text
+environmental severity
+alert level
+risk status
+recommendation codes
+RQ
+ARKL interpretation
+scientific threshold
+```
+
+Untuk evaluate endpoint, client hanya mengirim:
+
+```json
+{
+  "arkl_result_id": 12
+}
+```
+
+Backend kemudian mendapatkan:
+
+```text
+ARKLResult
+    ↓
+H2SReading
+    ↓
+Environmental Normalization
+    ↓
+Alert Engine
+```
+
+Dengan demikian backend tetap menjadi source of truth.
+
+---
+
+# 15.5 Architecture
+
+Struktur aktual Phase 5:
 
 ```text
 alerts/
-├── models.py
-├── serializers.py
-├── views.py
-├── urls.py
-├── admin.py
+├── migrations/
+│   └── 0001_initial.py
+│
 ├── services/
 │   ├── alert_engine.py
-│   ├── recommendation.py
-│   └── deduplication.py
-└── tests/
-    ├── test_alert_engine.py
-    ├── test_recommendation.py
-    ├── test_models.py
-    └── test_api.py
+│   ├── alert_service.py
+│   ├── constants.py
+│   ├── deduplication.py
+│   ├── environmental_mapping.py
+│   ├── evaluator.py
+│   ├── exceptions.py
+│   ├── lifecycle.py
+│   ├── persistence.py
+│   └── recommendation.py
+│
+├── tests/
+│   ├── __init__.py
+│   ├── conftest.py
+│   ├── test_alert_engine.py
+│   ├── test_api.py
+│   ├── test_e2e.py
+│   ├── test_environmental_mapping.py
+│   ├── test_evaluator.py
+│   ├── test_lifecycle.py
+│   ├── test_models.py
+│   ├── test_persistence.py
+│   └── test_recommendation.py
+│
+├── admin.py
+├── models.py
+├── serializers.py
+├── urls.py
+└── views.py
 ```
 
-Gunakan existing backend architecture:
+Arsitektur backend tetap:
 
 ```text
 View
@@ -1279,24 +1382,60 @@ Model / ORM
 SQLite
 ```
 
-Jangan membuat tambahan abstraction layer apabila belum diperlukan.
+Business rule tidak ditempatkan di React atau View.
+
+Tidak ditambahkan:
+
+```text
+Repository Pattern
+DI Container
+Celery
+Redis
+Channels
+event bus
+microservice
+```
+
+karena belum dibutuhkan.
+
+Prinsip:
+
+```text
+SOLID
+KISS
+YAGNI
+```
+
+tetap digunakan.
 
 ---
 
-## 15.4 Core Rules
+# 15.6 Core Scientific Rules
 
-Alert Engine wajib mengikuti aturan berikut:
+Alert Engine mengikuti batas berikut:
 
 ```text
 Alert Engine tidak menghitung ulang RQ.
-Alert Engine tidak menghitung ulang Exposure Concentration.
+
+Alert Engine tidak menghitung ulang
+Exposure Concentration.
+
 Alert Engine tidak mengubah RfC.
-Alert Engine tidak mengubah ARKL interpretation.
+
+Alert Engine tidak mengubah
+ARKL interpretation.
+
+Alert Engine tidak menentukan
+threshold ilmiah Layer 1.
 ```
 
-Layer 1 threshold harus tetap berasal dari specification/reference Layer 1.
+Layer 1 environmental status tetap berasal dari Layer 1.
 
-Layer 3 risk interpretation harus menggunakan hasil `ARKLResult`.
+Layer 3 risk interpretation tetap berasal dari:
+
+```text
+ARKLResult
+```
 
 Tidak boleh ada:
 
@@ -1304,6 +1443,7 @@ Tidak boleh ada:
 medical diagnosis
 ISPA probability prediction
 clinical decision
+medical treatment recommendation
 ```
 
 Recommendation harus:
@@ -1315,21 +1455,63 @@ documented
 testable
 ```
 
-AI boleh menjelaskan hasil Alert Engine, tetapi tidak boleh menentukan:
+---
+
+# 15.7 Environmental Normalization
+
+Layer 4 menggunakan canonical environmental severity:
 
 ```text
-RQ
-risk interpretation
-alert severity
-risk status
-scientific threshold
+NORMAL
+CAUTION
+WARNING
+DANGER
+CRITICAL
+```
+
+Normalisasi dilakukan oleh:
+
+```text
+alerts/services/environmental_mapping.py
+```
+
+Current implementation menerima canonical status dari Layer 1 dan melakukan normalization terhadap:
+
+```text
+case
+whitespace
+enum representation
+```
+
+Contoh:
+
+```text
+" normal "
+→ NORMAL
+
+"warning"
+→ WARNING
+```
+
+Unknown status ditolak.
+
+Layer 4 **tidak menghitung environmental severity dari ppm**.
+
+Artinya:
+
+```text
+ppm threshold
+→ tanggung jawab Layer 1
+
+status normalization
+→ tanggung jawab Layer 4
 ```
 
 ---
 
-## 15.5 Alert Severity
+# 15.8 Alert Severity
 
-Candidate machine-readable alert levels:
+Machine-readable alert levels telah dikunci sebagai:
 
 ```text
 NONE
@@ -1339,9 +1521,7 @@ HIGH
 CRITICAL
 ```
 
-Namun severity matrix final harus dikunci setelah Layer 1 environmental status mapping diaudit.
-
-Alert severity harus mempertimbangkan:
+Severity merupakan kombinasi:
 
 ```text
 Environmental Dimension
@@ -1349,15 +1529,15 @@ Environmental Dimension
 Risk Dimension
 ```
 
-dan bukan hanya satu nilai.
+bukan hanya satu nilai.
 
 ---
 
-## 15.6 Candidate Decision Matrix
+# 15.9 Final Decision Matrix
 
-Initial candidate:
+Decision matrix Phase 5 telah diimplementasikan dan diuji.
 
-Environmental Status
+Environmental
 
 ARKL Interpretation
 
@@ -1369,6 +1549,12 @@ WITHIN_REFERENCE_LEVEL
 
 NONE
 
+CAUTION
+
+WITHIN_REFERENCE_LEVEL
+
+LOW
+
 WARNING
 
 WITHIN_REFERENCE_LEVEL
@@ -1380,6 +1566,12 @@ DANGER
 WITHIN_REFERENCE_LEVEL
 
 HIGH
+
+CRITICAL
+
+WITHIN_REFERENCE_LEVEL
+
+CRITICAL
 
 NORMAL
 
@@ -1387,6 +1579,12 @@ ABOVE_REFERENCE_LEVEL
 
 MEDIUM
 
+CAUTION
+
+ABOVE_REFERENCE_LEVEL
+
+MEDIUM
+
 WARNING
 
 ABOVE_REFERENCE_LEVEL
@@ -1394,6 +1592,12 @@ ABOVE_REFERENCE_LEVEL
 HIGH
 
 DANGER
+
+ABOVE_REFERENCE_LEVEL
+
+CRITICAL
+
+CRITICAL
 
 ABOVE_REFERENCE_LEVEL
 
@@ -1402,106 +1606,137 @@ CRITICAL
 Status:
 
 ```text
-CANDIDATE — NOT SCIENTIFICALLY LOCKED YET
+IMPLEMENTED
+DETERMINISTIC
+TESTED
+LOCKED FOR MVP
 ```
 
-Matrix harus diverifikasi terhadap:
+Rule tambahan:
 
 ```text
-Layer 1 threshold specification
-environmental status semantics
-research risk-management requirements
+Risk Dimension tidak boleh
+menurunkan severity environmental.
 ```
-
-sebelum implementasi final.
 
 ---
 
-## 15.7 Risk Status
+# 15.10 Risk Status
 
-Candidate risk-management states:
+Risk-management states:
 
 ```text
 NO_ACTION_REQUIRED
+
 MONITORING_REQUIRED
+
 RISK_MANAGEMENT_REQUIRED
+
 IMMEDIATE_ACTION_REQUIRED
 ```
 
-Candidate mapping:
+Final mapping:
 
 ```text
 NONE
 → NO_ACTION_REQUIRED
 
+
 LOW
 → MONITORING_REQUIRED
+
 
 MEDIUM
 → MONITORING_REQUIRED
 
+
 HIGH
 → RISK_MANAGEMENT_REQUIRED
+
 
 CRITICAL
 → IMMEDIATE_ACTION_REQUIRED
 ```
 
-Mapping ini harus deterministic.
+Mapping bersifat:
+
+```text
+deterministic
+rule-based
+testable
+```
 
 ---
 
-## 15.8 Recommendation Rules
+# 15.11 Recommendation Rules
 
-Recommendation merupakan output rule-based dari alert severity dan risk status.
+Recommendation merupakan output deterministic berdasarkan hasil Alert Engine.
 
-Candidate recommendation codes:
+Recommendation codes yang digunakan pada Phase 5:
 
 ```text
 MONITOR_H2S_LEVEL
+
+INCREASE_MONITORING_FREQUENCY
+
 REDUCE_EXPOSURE_DURATION
+
 LIMIT_ACCESS_TO_EXPOSURE_AREA
-USE_APPROPRIATE_PPE
-INCREASE_ENVIRONMENTAL_MONITORING
-NOTIFY_RESPONSIBLE_OPERATOR
+
 TEMPORARY_AREA_AVOIDANCE
+
+USE_APPROPRIATE_PPE
+
+NOTIFY_RESPONSIBLE_OPERATOR
+
 PERFORM_FURTHER_RISK_EVALUATION
 ```
 
-Recommendation code lebih disukai daripada hardcoded long text di Alert Engine.
+Recommendation menggunakan machine-readable codes, bukan long text yang tertanam di Alert Engine.
 
-Contoh:
+Arsitektur:
 
 ```text
-recommendation_code
-        ↓
-React / API
-        ↓
-human-readable explanation
+Alert Level
+     ↓
+Recommendation Rule
+     ↓
+Recommendation Codes
+     ↓
+REST API
+     ↓
+React
 ```
 
-Hal ini memudahkan:
+Kemudian React atau optional AI explanation dapat mengubahnya menjadi bahasa human-readable.
+
+Keuntungan:
 
 ```text
 translation
+
 UI presentation
+
 research documentation
+
 future AI explanation
+
+consistent terminology
 ```
 
-Recommendation tidak boleh dianggap sebagai:
+Recommendation tidak dianggap sebagai:
 
 ```text
 medical treatment
 clinical advice
-diagnosis
+medical diagnosis
 ```
 
 ---
 
-## 15.9 Alert Lifecycle
+# 15.12 Alert Lifecycle
 
-Minimum lifecycle:
+Lifecycle Phase 5:
 
 ```text
 OPEN
@@ -1511,50 +1746,138 @@ ACKNOWLEDGED
 RESOLVED
 ```
 
-Meaning:
-
-### OPEN
+Transition tambahan yang diperbolehkan:
 
 ```text
-Alert baru dan membutuhkan perhatian.
+OPEN
+↓
+RESOLVED
 ```
-
-### ACKNOWLEDGED
-
-```text
-Alert telah diketahui oleh pengguna/operator.
-```
-
-### RESOLVED
-
-```text
-Alert telah ditutup karena kondisi atau tindak lanjut
-sudah dianggap selesai.
-```
-
-Jangan menambahkan state lain sampai ada kebutuhan nyata.
 
 ---
 
-## 15.10 Alert Deduplication
+## OPEN
+
+```text
+Alert aktif dan belum ditangani
+atau dikonfirmasi operator.
+```
+
+---
+
+## ACKNOWLEDGED
+
+```text
+Alert telah diketahui oleh
+pengguna/operator.
+```
+
+`ACKNOWLEDGED` masih dianggap sebagai **active alert**.
+
+Hal ini penting untuk mencegah telemetry berikutnya menghasilkan duplicate alert.
+
+---
+
+## RESOLVED
+
+```text
+Alert telah ditutup setelah
+kondisi atau tindak lanjut dianggap selesai.
+```
+
+`RESOLVED` tidak lagi dianggap active.
+
+Setelah alert resolved, alert baru dengan kondisi yang sesuai dapat dibuat kembali.
+
+---
+
+# 15.13 Lifecycle Rules
+
+Implemented rules:
+
+```text
+OPEN
+→ ACKNOWLEDGED
+allowed
+
+
+OPEN
+→ RESOLVED
+allowed
+
+
+ACKNOWLEDGED
+→ RESOLVED
+allowed
+
+
+ACKNOWLEDGED
+→ ACKNOWLEDGED
+idempotent
+
+
+RESOLVED
+→ RESOLVED
+idempotent
+
+
+RESOLVED
+→ ACKNOWLEDGED
+rejected
+```
+
+Lifecycle update dilakukan secara transactional.
+
+---
+
+# 15.14 Alert Deduplication
 
 MQTT dapat mengirim telemetry dengan frekuensi tinggi.
 
-Sistem tidak boleh membuat alert baru setiap telemetry masuk.
+Sistem tidak membuat alert baru untuk setiap telemetry.
 
-Minimum deduplication concept:
+Active alert status:
+
+```text
+OPEN
+ACKNOWLEDGED
+```
+
+Deduplication scope:
 
 ```text
 same worker
 +
 same device
 +
-same alert level
-+
-existing OPEN alert
-        ↓
-do not create duplicate alert
+active alert
 ```
+
+Jika incoming decision mempunyai severity yang sama:
+
+```text
+existing HIGH
++
+incoming HIGH
+        ↓
+duplicate
+        ↓
+no new Alert row
+```
+
+Hasil persistence:
+
+```json
+{
+  "created": false,
+  "duplicate": true,
+  "escalated": false
+}
+```
+
+---
+
+# 15.15 Escalation
 
 Jika severity meningkat:
 
@@ -1572,69 +1895,145 @@ HIGH
 CRITICAL
 ```
 
-sistem harus memperlakukan kondisi tersebut sebagai:
+maka kondisi dianggap:
 
 ```text
-alert escalation
+ESCALATION
 ```
 
-dan bukan sebagai duplicate biasa.
+dan alert baru dapat dibuat.
 
-Strategi update/create final ditentukan pada implementation design Phase 5.
+Hasil:
+
+```json
+{
+  "created": true,
+  "duplicate": false,
+  "escalated": true
+}
+```
+
+Severity comparison menggunakan explicit priority:
+
+```text
+NONE      = 0
+LOW       = 1
+MEDIUM    = 2
+HIGH      = 3
+CRITICAL  = 4
+```
 
 ---
 
-## 15.11 Realtime Alert Behaviour
+# 15.16 De-escalation Behaviour
+
+Jika active alert memiliki severity lebih tinggi daripada incoming evaluation:
+
+```text
+HIGH
+↓
+MEDIUM
+```
+
+maka Phase 5 tidak membuat alert baru.
+
+Hasil:
+
+```text
+created   = false
+duplicate = false
+escalated = false
+```
+
+Existing higher-severity alert tetap menjadi active alert.
+
+Tidak dibuat state tambahan seperti:
+
+```text
+SUPERSEDED
+```
+
+karena belum ada kebutuhan domain yang cukup kuat.
+
+Hal ini mengikuti prinsip YAGNI.
+
+---
+
+# 15.17 Realtime Alert Behaviour
 
 Raw telemetry tidak otomatis menghasilkan ARKLResult setiap detik.
 
-Alert evaluation direkomendasikan terjadi ketika:
+Alert evaluation dilakukan terhadap valid:
 
 ```text
-new valid ARKLResult exists
-OR
-environmental state changes
-OR
-risk state changes
-OR
-alert severity escalates
+REALTIME ARKLResult
 ```
+
+Flow:
+
+```text
+H2SReading
+      ↓
+REALTIME ARKLResult
+      ↓
+Alert Evaluation
+```
+
+Deduplication kemudian mencegah repeated identical decision menghasilkan spam.
 
 Tujuan:
 
 ```text
 avoid alert spam
+
 avoid unnecessary database writes
+
 avoid repeated identical notifications
 ```
 
 ---
 
-## 15.12 Realtime vs Historical ARKL
+# 15.18 Realtime vs Historical ARKL
 
-### REALTIME ARKL
+## REALTIME
 
 Eligible untuk:
 
 ```text
 realtime alert
+
 risk-management recommendation
+
 warning UI
+
 future notification
 ```
 
-### HISTORICAL ARKL
+---
+
+## HISTORICAL
 
 Eligible untuk:
 
 ```text
 historical analysis
+
 risk-management insight
+
 research reporting
+
 trend analysis
 ```
 
-Historical calculation tidak otomatis menghasilkan emergency alert.
+Historical ARKL tidak dapat digunakan untuk realtime alert persistence.
+
+Jika `calculation_type` bukan:
+
+```text
+REALTIME
+```
+
+maka realtime Alert persistence ditolak.
 
 Default:
 
@@ -1642,141 +2041,454 @@ Default:
 HISTORICAL
 → analytical result
 
+
 REALTIME
 → realtime alert eligible
 ```
 
 ---
 
-## 15.13 Simulated Data Provenance
+# 15.19 Simulated Data Provenance
 
-Jika input menggunakan:
-
-```text
-simulated = true
-```
-
-maka alert harus mempertahankan provenance.
-
-Recommended:
+Jika:
 
 ```text
-source_simulated = true
+H2SReading.simulated = true
 ```
 
-Alert simulated boleh digunakan untuk:
+atau:
+
+```text
+ARKLResult.source_simulated = true
+```
+
+maka:
+
+```text
+Alert.source_simulated = true
+```
+
+Logic:
+
+```text
+reading.simulated
+OR
+arkl_result.source_simulated
+```
+
+Simulated Alert dapat digunakan untuk:
 
 ```text
 development
+
 testing
+
 demonstration
+
 E2E verification
 ```
 
-tetapi UI tidak boleh menampilkannya sebagai data sensor fisik.
+UI harus membedakan simulated data dari sensor fisik.
 
 ---
 
-## 15.14 Alert Model
+# 15.20 Alert Model
 
-Recommended minimum model:
+Model aktual:
 
 ```text
 Alert
 ├── id
+│
 ├── worker
 ├── device
 ├── reading
 ├── arkl_result
 │
-├── environmental_status
-├── environmental_level
 ├── concentration_ppm
+├── environmental_level
+├── environmental_status
+├── environmental_severity
 │
 ├── rq
 ├── risk_interpretation
+├── calculation_version
 │
 ├── alert_level
 ├── risk_status
-│
 ├── status
-├── recommendation_codes
 │
+├── recommendation_codes
+├── alert_rule_version
 ├── source_simulated
 │
 ├── acknowledged_at
 ├── resolved_at
+│
 ├── created_at
 └── updated_at
 ```
 
-Snapshot fields harus dipertimbangkan untuk menjaga auditability.
+---
 
-Alert lama tidak boleh berubah hanya karena source ARKL atau environmental data kemudian diperbarui.
+# 15.21 Snapshot Strategy
+
+Alert menyimpan snapshot dari environmental dan risk state.
+
+Contoh:
+
+```text
+concentration_ppm
+environmental_level
+environmental_status
+environmental_severity
+
+rq
+risk_interpretation
+calculation_version
+
+alert_level
+risk_status
+recommendation_codes
+alert_rule_version
+```
+
+Tujuannya:
+
+```text
+auditability
+
+reproducibility
+
+research traceability
+
+historical integrity
+```
+
+Alert lama tidak bergantung pada source object yang kemudian berubah.
 
 ---
 
-## 15.15 Candidate API Output
+# 15.22 Raw vs Canonical Environmental Status
+
+Dua field dipertahankan:
+
+```text
+environmental_status
+```
+
+menyimpan raw Layer 1 status.
+
+Sedangkan:
+
+```text
+environmental_severity
+```
+
+menyimpan canonical Layer 4 severity.
+
+Contoh:
+
+```text
+Layer 1:
+"warning"
+
+Layer 4:
+WARNING
+```
+
+Strategi ini menjaga:
+
+```text
+source traceability
++
+normalized decision input
+```
+
+---
+
+# 15.23 Alert Rule Version
+
+Setiap alert menyimpan:
+
+```text
+alert_rule_version
+```
+
+Current version:
+
+```text
+1.0.0-MVP
+```
+
+Tujuannya untuk mengetahui rule set yang digunakan saat alert dibuat.
+
+Ini penting apabila decision matrix berubah pada penelitian atau versi sistem berikutnya.
+
+---
+
+# 15.24 Persistence Contract
+
+Persistence service mengembalikan:
+
+```text
+AlertPersistenceResult
+```
+
+dengan:
+
+```text
+alert
+
+created
+
+duplicate
+
+escalated
+```
+
+Contoh alert baru:
 
 ```json
 {
-  "environment": {
-    "ppm": 4.2,
-    "status": "WARNING",
-    "level": 2
-  },
-  "risk": {
-    "rq": 1.42,
-    "interpretation": "ABOVE_REFERENCE_LEVEL",
-    "calculation_version": "1.1.0-MVP"
-  },
-  "alert": {
-    "level": "HIGH",
-    "risk_status": "RISK_MANAGEMENT_REQUIRED",
-    "status": "OPEN"
-  },
-  "recommendations": [
-    "REDUCE_EXPOSURE_DURATION",
-    "USE_APPROPRIATE_PPE",
-    "MONITOR_H2S_LEVEL"
-  ],
-  "source_simulated": false
+  "created": true,
+  "duplicate": false,
+  "escalated": false
 }
+```
+
+Duplicate:
+
+```json
+{
+  "created": false,
+  "duplicate": true,
+  "escalated": false
+}
+```
+
+Escalation:
+
+```json
+{
+  "created": true,
+  "duplicate": false,
+  "escalated": true
+}
+```
+
+No-alert decision:
+
+```json
+{
+  "alert": null,
+  "created": false,
+  "duplicate": false,
+  "escalated": false
+}
+```
+
+---
+
+# 15.25 REST API
+
+Final endpoints Phase 5:
+
+```text
+GET
+/api/v1/alerts/
+
+
+GET
+/api/v1/alerts/{id}/
+
+
+POST
+/api/v1/alerts/evaluate/
+
+
+PATCH
+/api/v1/alerts/{id}/acknowledge/
+
+
+PATCH
+/api/v1/alerts/{id}/resolve/
+```
+
+---
+
+# 15.26 Alert Evaluate API
+
+Request:
+
+```http
+POST /api/v1/alerts/evaluate/
+```
+
+Payload:
+
+```json
+{
+  "arkl_result_id": 12
+}
+```
+
+Client tidak mengirim:
+
+```text
+worker_id
+
+device_id
+
+reading_id
+
+RQ
+
+environmental severity
+
+alert level
+
+risk status
+
+recommendation codes
+```
+
+Semua diturunkan backend dari:
+
+```text
+ARKLResult
++
+H2SReading
+```
+
+---
+
+# 15.27 Alert API Response
+
+Representative response:
+
+```json
+{
+  "created": true,
+  "duplicate": false,
+  "escalated": false,
+  "alert": {
+    "id": 15,
+    "worker_code": "PML-001",
+    "device_code": "H2S-001",
+    "reading_id": 42,
+    "arkl_result_id": 21,
+
+    "concentration_ppm": "25.400000",
+
+    "environmental_level": 2,
+    "environmental_status": "WARNING",
+    "environmental_severity": "WARNING",
+
+    "rq": "4059.360730593607",
+    "risk_interpretation": "ABOVE_REFERENCE_LEVEL",
+    "calculation_version": "1.1.0-MVP",
+
+    "alert_level": "HIGH",
+    "risk_status": "RISK_MANAGEMENT_REQUIRED",
+    "status": "OPEN",
+
+    "recommendation_codes": [
+      "MONITOR_H2S_LEVEL",
+      "REDUCE_EXPOSURE_DURATION"
+    ],
+
+    "alert_rule_version": "1.0.0-MVP",
+
+    "source_simulated": true,
+
+    "acknowledged_at": null,
+    "resolved_at": null
+  }
+}
+```
+
+Exact recommendation list mengikuti deterministic recommendation rules.
+
+---
+
+# 15.28 Alert List Filtering
+
+`GET /api/v1/alerts/` mendukung filtering:
+
+```text
+worker_code
+
+device_code
+
+alert_level
+
+status
+```
+
+Contoh:
+
+```http
+GET /api/v1/alerts/?worker_code=PML-001
+```
+
+atau:
+
+```http
+GET /api/v1/alerts/?alert_level=CRITICAL
+```
+
+---
+
+# 15.29 React Boundary
+
+React hanya bertanggung jawab pada:
+
+```text
+presentation
+
+interaction
+
+filtering request
+
+acknowledge action
+
+resolve action
 ```
 
 React tidak menentukan:
 
 ```text
+environmental severity
+
 alert level
+
 risk status
-recommendation code
+
+recommendendation decision
+
+RQ
+
+ARKL interpretation
 ```
 
-React hanya menampilkan hasil backend.
-
----
-
-## 15.16 Candidate REST API
-
-Minimum candidate endpoints:
+Flow:
 
 ```text
-GET   /api/v1/alerts/
-GET   /api/v1/alerts/{id}/
-
-POST  /api/v1/alerts/evaluate/
-
-PATCH /api/v1/alerts/{id}/acknowledge/
-PATCH /api/v1/alerts/{id}/resolve/
+Backend
+   ↓
+deterministic result
+   ↓
+REST API
+   ↓
+React
 ```
-
-Endpoint final harus mengikuti kebutuhan implementation dan tidak perlu dibuat seluruhnya apabila belum diperlukan.
 
 ---
 
-## 15.17 AI Boundary
+# 15.30 AI Boundary
 
-Allowed:
+Allowed architecture:
 
 ```text
 Deterministic Alert
@@ -1787,225 +2499,887 @@ human-readable explanation
 risk communication
 education
 summary
+report narrative
 ```
 
 AI boleh:
 
 ```text
 menjelaskan penyebab alert
+
 meringkas rekomendasi
+
 menghasilkan bahasa edukasi
-membantu report narrative
+
+membantu research narrative
+
+membantu report drafting
 ```
 
 AI tidak boleh:
 
 ```text
 menghitung RQ
+
 mengubah RfC
-mengubah threshold
+
+mengubah scientific threshold
+
 memilih alert level
+
 menentukan risk status
-membuat diagnosis
+
+mengubah ARKL interpretation
+
+membuat medical diagnosis
 ```
+
+Deterministic core tetap dapat berfungsi tanpa AI.
 
 ---
 
-## 15.18 Observability
+# 15.31 Observability
 
-Gunakan existing observability infrastructure.
+Phase 5 menggunakan existing global observability.
 
-HTTP:
+HTTP request:
 
 ```text
-existing global middleware
+Request ID middleware
+
+Request logging
+
+Error logging
+
+Performance monitoring
+
+Security audit
+
+Redaction
 ```
 
-Service/background logging:
+Contoh log dari E2E:
+
+```text
+request_started
+method=POST
+path=/api/v1/alerts/evaluate/
+```
+
+dan:
+
+```text
+request_completed
+status=201
+duration_ms=...
+```
+
+Tidak dibuat observability stack baru.
+
+Untuk background/service logging apabila diperlukan:
 
 ```text
 smart_h2s.alerts
 ```
 
-Jangan implement ulang:
-
-```text
-Request ID
-request logging
-error logging
-performance monitoring
-security audit
-redaction
-rotating logs
-```
-
-Alert log tidak boleh memuat data personal yang tidak diperlukan.
+Existing observability tidak diimplementasikan ulang.
 
 ---
 
-## 15.19 Testing Requirements
+# 15.32 Testing Coverage
 
-Minimum tests:
+Phase 5 memiliki test untuk:
 
 ```text
-alert engine
-├── NORMAL + WITHIN
-├── WARNING + WITHIN
-├── DANGER + WITHIN
-├── NORMAL + ABOVE
-├── WARNING + ABOVE
-└── DANGER + ABOVE
+Alert Engine
 
-recommendation
-├── deterministic mapping
-├── expected codes
-└── no medical recommendation
+Environmental Mapping
 
-deduplication
-├── duplicate OPEN alert
-├── resolved alert allows new alert
-└── severity escalation
+Evaluator
 
-lifecycle
-├── OPEN
-├── ACKNOWLEDGED
-└── RESOLVED
+Recommendation
 
-persistence
-├── source ARKLResult
-├── environmental snapshot
-├── risk snapshot
-└── simulated provenance
+Model
 
-API
-├── list
-├── detail
-├── evaluate
-├── acknowledge
-├── resolve
-└── invalid input
+Persistence
+
+Deduplication
+
+Escalation
+
+Lifecycle
+
+REST API
+
+E2E
 ```
 
-Full regression wajib memastikan Phase 5 tidak merusak:
+---
+
+## Alert Engine Tests
+
+Decision matrix diuji untuk:
 
 ```text
-MQTT ingestion
-Device API
-Reading API
-Worker API
-ExposureProfile API
+NORMAL + WITHIN
+
+CAUTION + WITHIN
+
+WARNING + WITHIN
+
+DANGER + WITHIN
+
+CRITICAL + WITHIN
+
+NORMAL + ABOVE
+
+CAUTION + ABOVE
+
+WARNING + ABOVE
+
+DANGER + ABOVE
+
+CRITICAL + ABOVE
+```
+
+Selain itu diuji:
+
+```text
+risk-status mapping
+
+risk does not reduce environmental severity
+
+invalid environmental severity
+
+invalid ARKL interpretation
+```
+
+---
+
+## Recommendation Tests
+
+Diuji:
+
+```text
+NONE recommendation
+
+LOW recommendation
+
+MEDIUM recommendation
+
+HIGH recommendation
+
+CRITICAL recommendation
+
+deterministic output
+
+invalid alert level
+```
+
+---
+
+## Persistence Tests
+
+Diuji:
+
+```text
+alert snapshot persistence
+
+same active alert deduplication
+
+ACKNOWLEDGED remains active
+
+RESOLVED allows new alert
+
+severity escalation
+
+de-escalation
+
+NONE does not persist
+
+HISTORICAL rejection
+
+reading mismatch rejection
+
+simulated reading provenance
+
+simulated ARKL provenance
+```
+
+---
+
+## Lifecycle Tests
+
+Diuji:
+
+```text
+OPEN → ACKNOWLEDGED
+
+ACKNOWLEDGED idempotency
+
+ACKNOWLEDGED → RESOLVED
+
+OPEN → RESOLVED
+
+RESOLVED idempotency
+
+RESOLVED → ACKNOWLEDGED rejection
+```
+
+---
+
+## API Tests
+
+Diuji:
+
+```text
+alert list
+
+alert detail
+
+404 detail
+
+acknowledge
+
+resolve
+
+resolved cannot acknowledge
+
+filter worker
+
+filter device
+
+filter alert level
+
+evaluate
+
+duplicate evaluate
+
+invalid ARKLResult
+```
+
+Result:
+
+```text
+12 API tests passed
+```
+
+---
+
+# 15.33 E2E Verification
+
+E2E test membuktikan alur:
+
+```text
+H2SReading
+      ↓
+ARKLResult
+      ↓
+Alert Evaluate REST API
+      ↓
+Environmental Normalization
+      ↓
+Alert Engine
+      ↓
+Recommendation
+      ↓
+Persistence
+      ↓
+Duplicate Protection
+      ↓
+Alert Detail API
+      ↓
+ACKNOWLEDGED
+      ↓
+RESOLVED
+```
+
+E2E juga memverifikasi:
+
+```text
+worker provenance
+
+device provenance
+
+reading provenance
+
+ARKLResult provenance
+
+environmental status
+
+environmental severity
+
+risk interpretation
+
+alert level
+
+simulated provenance
+
+recommendation output
+
+duplicate prevention
+
+lifecycle
+```
+
+Result:
+
+```text
+E2E TEST PASSED
+```
+
+---
+
+# 15.34 Full Regression
+
+Latest verified full regression:
+
+```text
+160 passed
+```
+
+Regression mencakup:
+
+```text
+alerts
+
 ARKL v1.1
+
+MQTT ingestion
+
+Device
+
+H2SReading
+
+Worker
+
+ExposureProfile
+
 core observability
 ```
 
+Tidak ditemukan regression terhadap layer sebelumnya.
+
 ---
 
-## 15.20 Definition of Done
+# 15.35 Quality Gates
+
+Latest verified results:
 
 ```text
-[ ] Layer 1 environmental threshold/status audited
+pytest
+→ 160 passed
 
-[ ] environmental dimension documented
-[ ] risk dimension documented
-[ ] environmental/risk dimensions remain separated
 
-[ ] alert decision matrix locked
-[ ] alert level deterministic
-[ ] risk status deterministic
+ruff check .
+→ All checks passed
 
-[ ] recommendation rules documented
-[ ] recommendation codes implemented
-[ ] no medical diagnosis/recommendation
 
-[ ] Alert model implemented
-[ ] provenance preserved
-[ ] lifecycle implemented
+python manage.py check
+→ System check identified no issues
 
-[ ] deduplication implemented
-[ ] alert escalation handled
-[ ] repeated telemetry does not create alert spam
 
-[ ] realtime ARKL integration works
-[ ] historical ARKL does not create emergency alert by default
+python manage.py spectacular --file schema.yml
+→ schema generated successfully
 
-[ ] REST API implemented
-[ ] React-compatible output
 
-[ ] AI does not calculate risk or severity
+pip-audit
+→ No known vulnerabilities found
+```
 
-[ ] unit tests pass
-[ ] API tests pass
-[ ] full regression passes
+Pada verification terakhir masih terdapat satu formatting-only item:
 
-[ ] Ruff clean
-[ ] format clean
-[ ] Django check clean
-[ ] OpenAPI clean
+```text
+alerts/views.py
+```
+
+yang perlu diformat menggunakan:
+
+```powershell
+ruff format alerts/views.py
+```
+
+kemudian diverifikasi:
+
+```powershell
+ruff format --check .
+```
+
+Ini bukan failure business logic atau testing.
+
+---
+
+# 15.36 Security and Integrity Rules
+
+Phase 5 mempertahankan aturan:
+
+```text
+Client cannot control alert severity.
+
+Client cannot control risk status.
+
+Client cannot control recommendation codes.
+
+Client cannot alter ARKL result through Alert API.
+
+Historical ARKL cannot create realtime alert.
+
+Reading and ARKLResult relationship is validated.
+
+Simulated provenance is preserved.
+```
+
+Selain itu existing middleware tetap menangani:
+
+```text
+400 security audit
+
+401 security audit
+
+403 security audit
+
+request ID
+
+error logging
+
+redaction
 ```
 
 ---
 
-## 15.21 Phase 5 Implementation Order
+# 15.37 Phase 5 Implementation History
+
+Phase 5 dilaksanakan dengan urutan:
 
 ```text
-1. Audit Layer 1 status/threshold contract
+Phase 5A
+Scientific / Operational Specification
         ↓
-2. Lock alert decision matrix
+
+Phase 5B
+Environmental Mapping
         ↓
-3. Lock risk-status mapping
+Alert Decision Matrix
         ↓
-4. Define recommendation codes
+Risk Status
         ↓
-5. Implement alert_engine.py
+Recommendation
         ↓
-6. Implement recommendation.py
+Evaluator
         ↓
-7. Unit tests
+Unit Tests
         ↓
-8. Alert model
+
+Phase 5C
+Alert Model
         ↓
-9. Migration
+Migration
         ↓
-10. Deduplication
+Persistence
         ↓
-11. Lifecycle
+Deduplication
         ↓
-12. REST API
+Escalation
         ↓
-13. OpenAPI
+Lifecycle
         ↓
-14. Integration tests
+Integration Tests
         ↓
-15. Full regression
+
+Phase 5D
+Alert Service Orchestration
         ↓
-16. E2E
+Serializer
         ↓
-17. Phase 5 lock
+REST API
+        ↓
+OpenAPI
+        ↓
+API Tests
+        ↓
+
+Phase 5E
+Full E2E
+        ↓
+Full Regression
+        ↓
+Phase 5 Lock
 ```
 
 ---
 
-# 16. Phase 6 — Layer 5 Research & Reporting
-
-## Tujuan
-
-Layer 5 menyediakan data yang siap digunakan untuk:
+# 15.38 Definition of Done
 
 ```text
-research analysis
-charts
-tables
-statistics
-recapitulation
-export
-publication
+[x] environmental dimension documented
+
+[x] risk dimension documented
+
+[x] environmental/risk dimensions remain separated
+
+[x] canonical environmental mapping implemented
+
+[x] alert decision matrix locked
+
+[x] alert level deterministic
+
+[x] risk status deterministic
+
+[x] recommendation rules documented
+
+[x] recommendation codes implemented
+
+[x] no medical diagnosis
+
+[x] Alert model implemented
+
+[x] migration implemented
+
+[x] snapshot strategy implemented
+
+[x] provenance preserved
+
+[x] lifecycle implemented
+
+[x] OPEN implemented
+
+[x] ACKNOWLEDGED implemented
+
+[x] RESOLVED implemented
+
+[x] deduplication implemented
+
+[x] ACKNOWLEDGED treated as active
+
+[x] resolved alert allows new alert
+
+[x] alert escalation handled
+
+[x] de-escalation handled
+
+[x] repeated identical evaluation does not create alert spam
+
+[x] realtime ARKL integration works
+
+[x] historical ARKL rejected for realtime alert creation
+
+[x] REST API implemented
+
+[x] list API implemented
+
+[x] detail API implemented
+
+[x] evaluate API implemented
+
+[x] acknowledge API implemented
+
+[x] resolve API implemented
+
+[x] filtering implemented
+
+[x] React-compatible output
+
+[x] client cannot determine alert decision
+
+[x] AI does not calculate risk or severity
+
+[x] unit tests pass
+
+[x] persistence tests pass
+
+[x] lifecycle tests pass
+
+[x] API tests pass
+
+[x] E2E test passes
+
+[x] full regression passes
+
+[x] Ruff lint clean
+
+[~] Ruff format clean
+    functional code clean;
+    final alerts/views.py formatting verification pending
+
+[x] Django check clean
+
+[x] OpenAPI generation clean
+
+[x] pip-audit clean
 ```
 
-Layer ini hanya membaca data yang telah dihasilkan layer sebelumnya dan melakukan analytical aggregation.
+---
 
-Layer 5 tidak menghitung ulang scientific formula ARKL.
+# 15.39 Known MVP Boundary
+
+Phase 5 intentionally tidak menangani:
+
+```text
+medical diagnosis
+
+ISPA probability prediction
+
+clinical decision support
+
+automatic AI decision making
+
+Celery jobs
+
+Redis queue
+
+WebSocket backend
+
+notification gateway
+
+SMS
+
+WhatsApp notification
+
+email notification
+
+complex event streaming
+```
+
+Semua itu di luar kebutuhan Phase 5 MVP.
 
 ---
+
+# 15.40 Deferred Considerations
+
+Beberapa hal sengaja tidak ditambahkan karena belum diperlukan.
+
+### Superseded Alert State
+
+Saat escalation:
+
+```text
+MEDIUM
+↓
+HIGH
+```
+
+alert HIGH baru dibuat.
+
+Existing MEDIUM tidak otomatis diberi status:
+
+```text
+SUPERSEDED
+```
+
+karena state tersebut belum dibutuhkan pada MVP.
+
+---
+
+### Automatic Telemetry-triggered ARKL
+
+Raw MQTT telemetry tidak otomatis menjalankan ARKL pada setiap message.
+
+Hal ini mencegah:
+
+```text
+unnecessary calculation
+
+database write explosion
+
+alert spam
+```
+
+---
+
+### AI Agent
+
+AI Agent belum menjadi bagian deterministic Phase 5.
+
+Jika digunakan nanti, posisinya:
+
+```text
+ARKL + Alert deterministic output
+        ↓
+AI explanation
+```
+
+bukan:
+
+```text
+AI
+↓
+scientific decision
+```
+
+---
+
+# 15.41 Final Phase 5 Architecture
+
+```text
+ESP32 / MQTT
+      ↓
+H2SReading
+      ↓
+Layer 2 Data
+      ↓
+Smart ARKL v1.1
+      ↓
+ARKLResult
+      │
+      ├──────────────────────┐
+      │                      │
+      ↓                      ↓
+Risk Dimension       Environmental Dimension
+ARKLResult               H2SReading
+      │                      │
+      └──────────┬───────────┘
+                 ↓
+      Environmental Normalizer
+                 ↓
+      Deterministic Alert Engine
+                 ↓
+        Alert Decision
+          ├── Alert Level
+          └── Risk Status
+                 ↓
+      Recommendation Engine
+                 ↓
+         Alert Evaluation
+                 ↓
+      Persistence / Dedup
+                 ↓
+             Alert
+                 ↓
+       Lifecycle Management
+        OPEN
+          ↓
+     ACKNOWLEDGED
+          ↓
+       RESOLVED
+                 ↓
+             REST API
+                 ↓
+              React
+```
+
+---
+
+# 15.42 Final Scientific Boundary
+
+Phase 5 menghasilkan:
+
+```text
+environmental alert
+
+risk-management classification
+
+risk-management recommendation
+```
+
+Phase 5 tidak menghasilkan:
+
+```text
+diagnosis ISPA
+
+probability seseorang mengalami ISPA
+
+medical risk prediction
+
+clinical recommendation
+```
+
+`RQ` tetap merupakan:
+
+```text
+risk characterization metric
+```
+
+bukan probabilitas penyakit.
+
+---
+
+# 15.43 Phase 5 Final Lock
+
+Setelah final formatting verification:
+
+```text
+Phase 5
+Layer 4 — Alert & Risk Management
+
+ALERT_RULE_VERSION:
+1.0.0-MVP
+
+ARKL_CALCULATION_VERSION:
+1.1.0-MVP
+
+STATUS:
+MVP OPERATIONAL LOCK
+IMPLEMENTED
+TESTED
+E2E VERIFIED
+REGRESSION VERIFIED
+```
+
+Setelah status ini dikunci:
+
+```text
+DO NOT
+redefine alert matrix
+
+DO NOT
+change ARKL v1.1 formula
+
+DO NOT
+change RfC
+
+DO NOT
+move decision logic to React
+
+DO NOT
+let AI determine alert severity
+```
+
+kecuali terdapat:
+
+```text
+new scientific evidence
+
+validated research requirement
+
+domain requirement
+
+versioned change
+```
+
+Perubahan selanjutnya harus menghasilkan versi rule baru, bukan diam-diam mengubah:
+
+```text
+1.0.0-MVP
+```
+
+---
+
+# 15.44 Next Phase
+
+Setelah Phase 5 dikunci, tahap berikutnya:
+
+```text
+Phase 6
+Layer 5 — Research & Reporting
+```
+
+Target awal:
+
+```text
+research aggregation
+        ↓
+H₂S trend analysis
+        ↓
+ARKL statistics
+        ↓
+alert statistics
+        ↓
+chart-ready API
+        ↓
+research summary
+        ↓
+report/export
+```
 
 ## 16.1 Data Sources
 
@@ -2401,68 +3775,1544 @@ Alert Level
 ```
 
 
+
+---
+
+
+
 # 16. Phase 6 — Layer 5 Research & Reporting
 
-## Tujuan
-
-Menyediakan research-ready data untuk grafik, tabel, statistik, export, dan publikasi.
-
-## Backend Responsibilities
-
-- query;
-- aggregation;
-- statistics;
-- summary;
-- export;
-- research API.
-
-## React Responsibilities
-
-- charts;
-- tables;
-- visualization;
-- dashboard;
-- report preview.
-
-## Candidate Endpoints
+## Status
 
 ```text
-GET /api/v1/research/h2s-summary/
-GET /api/v1/research/h2s-trends/
-GET /api/v1/research/risk-distribution/
-GET /api/v1/research/arkl-results/
-GET /api/v1/research/exposure-summary/
+PHASE 6 STATUS:
+PLANNED — NOT IMPLEMENTED YET
+
+DEPENDENCIES:
+Layer 1 — IoT Environmental Monitoring       ✅
+Layer 2 — Data & Exposure Management          ✅
+Layer 3 — Smart ARKL v1.1                     ✅ LOCKED
+Layer 4 — Alert & Risk Management             ✅ LOCKED
 ```
 
-## Rules
+Phase 6 bertugas mengubah data operasional Layer 1–4 menjadi output yang siap digunakan untuk:
 
-Jangan duplikasi ARKL formula di reporting.
+```text
+research analysis
+dashboard
+charts
+tables
+statistical recap
+export
+reporting
+publication support
+```
 
-Reporting hanya membaca:
+Phase 6 bukan calculation engine baru.
+
+---
+
+# 16.1 Tujuan
+
+Menyediakan analytical dan research-ready data dari:
 
 ```text
 H2SReading
++
 ExposureProfile
++
 ARKLResult
-AlertResult
++
+Alert
+        ↓
+Research & Reporting Layer
+        ↓
+Aggregation
+Statistics
+Trend Data
+Distribution
+Summary
+Export
+        ↓
+React / Research Output
 ```
 
-dan melakukan analytical aggregation.
+Output harus dapat digunakan untuk:
 
-## Definition of Done
+- grafik penelitian;
+- tabel hasil;
+- statistik deskriptif;
+- analisis tren H₂S;
+- rekap ARKL;
+- distribusi tingkat risiko;
+- rekap alert;
+- analisis exposure profile;
+- dashboard penelitian;
+- report preview;
+- export data penelitian.
+
+---
+
+# 16.2 Scientific Boundary
+
+Phase 6 hanya melakukan:
 
 ```text
-[ ] historical H2S summary
-[ ] trend data
-[ ] ARKL result recap
-[ ] exposure summary
-[ ] risk distribution
-[ ] export bila diperlukan
-[ ] React chart-ready API
-[ ] tests
+query
+filtering
+aggregation
+descriptive statistics
+distribution
+trend preparation
+report formatting
+export
+```
+
+Phase 6 **tidak boleh** menghitung ulang business logic dari layer sebelumnya.
+
+Tidak boleh menduplikasi:
+
+```text
+ppm → environmental classification
+```
+
+dari Layer 1.
+
+Tidak boleh menduplikasi:
+
+```text
+ppm → mg/m³
+EC
+RQ
+RfC
+ARKL interpretation
+```
+
+dari Layer 3.
+
+Tidak boleh menduplikasi:
+
+```text
+alert decision matrix
+risk status mapping
+recommendation rules
+```
+
+dari Layer 4.
+
+Source of truth tetap:
+
+```text
+H2SReading
+ARKLResult
+Alert
+```
+
+Phase 6 membaca hasil yang sudah tersedia.
+
+---
+
+# 16.3 Primary Data Sources
+
+## Environmental Data
+
+Source:
+
+```text
+H2SReading
+```
+
+Relevant fields:
+
+```text
+device
+ppm
+level
+status
+simulated
+received_at
+```
+
+Digunakan untuk:
+
+```text
+historical H₂S summary
+time-series trend
+minimum/maximum/average
+sample count
+environmental status distribution
 ```
 
 ---
+
+## Exposure Data
+
+Source:
+
+```text
+ExposureProfile
+```
+
+Relevant fields:
+
+```text
+worker
+body_weight
+exposure_time
+exposure_frequency
+exposure_duration
+inhalation_rate
+```
+
+Digunakan untuk:
+
+```text
+exposure profile recap
+descriptive statistics
+worker exposure overview
+research table
+```
+
+ExposureProfile tidak dihitung ulang menjadi RQ pada Phase 6.
+
+---
+
+## ARKL Data
+
+Source:
+
+```text
+ARKLResult
+```
+
+Relevant fields:
+
+```text
+worker
+reading
+calculation_type
+
+concentration_ppm
+concentration_mg_m3
+exposure_concentration_mg_m3
+
+rfc
+rq
+interpretation
+
+calculation_version
+source_simulated
+
+period_start
+period_end
+reading_count
+
+created_at
+```
+
+Digunakan untuk:
+
+```text
+RQ distribution
+ARKL result recap
+risk interpretation distribution
+historical/realtime comparison
+version traceability
+research statistics
+```
+
+---
+
+## Alert Data
+
+Source:
+
+```text
+Alert
+```
+
+Relevant fields:
+
+```text
+worker
+device
+reading
+arkl_result
+
+environmental_severity
+alert_level
+risk_status
+status
+
+recommendation_codes
+
+source_simulated
+alert_rule_version
+
+acknowledged_at
+resolved_at
+created_at
+```
+
+Digunakan untuk:
+
+```text
+alert distribution
+severity distribution
+lifecycle statistics
+risk-management recap
+recommendation frequency
+```
+
+Catatan model yang benar adalah:
+
+```text
+Alert
+```
+
+bukan:
+
+```text
+AlertResult
+```
+
+karena model Phase 5 yang diimplementasikan adalah `Alert`.
+
+---
+
+# 16.4 Architecture
+
+Target:
+
+```text
+research/
+├── services/
+│   ├── h2s_summary.py
+│   ├── h2s_trends.py
+│   ├── arkl_summary.py
+│   ├── exposure_summary.py
+│   ├── alert_summary.py
+│   └── export.py
+│
+├── tests/
+│   ├── test_h2s_summary.py
+│   ├── test_h2s_trends.py
+│   ├── test_arkl_summary.py
+│   ├── test_exposure_summary.py
+│   ├── test_alert_summary.py
+│   └── test_api.py
+│
+├── serializers.py
+├── views.py
+└── urls.py
+```
+
+Namun struktur final tidak perlu dibuat seluruhnya sejak awal.
+
+Gunakan:
+
+```text
+View
+  ↓
+Serializer
+  ↓
+Research Service
+  ↓
+Django ORM aggregation
+  ↓
+Existing Models
+```
+
+Tidak perlu:
+
+```text
+Pandas di request path
+NumPy
+Celery
+data warehouse
+ETL framework
+repository layer
+analytics database
+```
+
+selama Django ORM masih cukup.
+
+---
+
+# 16.5 Time Range Contract
+
+Sebagian besar endpoint Phase 6 harus mendukung periode.
+
+Recommended query parameters:
+
+```text
+start
+end
+device_code
+worker_code
+source_simulated
+```
+
+Contoh:
+
+```http
+GET /api/v1/research/h2s-summary/
+    ?start=2026-08-01T00:00:00Z
+    &end=2026-08-20T23:59:59Z
+    &device_code=H2S-001
+```
+
+Rule:
+
+```text
+start <= end
+```
+
+Invalid period:
+
+```text
+→ HTTP 400
+```
+
+Jika period tidak diberikan, endpoint boleh menggunakan seluruh dataset pada MVP atau default yang terdokumentasi.
+
+Jangan menggunakan default period tersembunyi.
+
+---
+
+# 16.6 H₂S Historical Summary
+
+Endpoint:
+
+```text
+GET /api/v1/research/h2s-summary/
+```
+
+Tujuan:
+
+```text
+descriptive environmental summary
+```
+
+Minimum output:
+
+```text
+sample_count
+minimum_ppm
+maximum_ppm
+average_ppm
+first_reading_at
+last_reading_at
+```
+
+Recommended tambahan:
+
+```text
+simulated_count
+physical_count
+device_count
+```
+
+Contoh:
+
+```json
+{
+  "period": {
+    "start": "2026-08-01T00:00:00Z",
+    "end": "2026-08-20T23:59:59Z"
+  },
+  "sample_count": 1240,
+  "minimum_ppm": 0.12,
+  "maximum_ppm": 58.61,
+  "average_ppm": 6.42,
+  "first_reading_at": "2026-08-01T08:01:02Z",
+  "last_reading_at": "2026-08-20T16:32:54Z"
+}
+```
+
+Statistik dihasilkan dari stored `H2SReading.ppm`.
+
+---
+
+# 16.7 H₂S Trend Data
+
+Endpoint:
+
+```text
+GET /api/v1/research/h2s-trends/
+```
+
+Tujuan:
+
+```text
+chart-ready time-series
+```
+
+Recommended query:
+
+```text
+interval=raw
+interval=hour
+interval=day
+```
+
+MVP minimal:
+
+```text
+raw
+hour
+day
+```
+
+Contoh daily aggregation:
+
+```json
+{
+  "interval": "day",
+  "series": [
+    {
+      "timestamp": "2026-08-18",
+      "average_ppm": 4.12,
+      "minimum_ppm": 0.20,
+      "maximum_ppm": 27.50,
+      "sample_count": 520
+    },
+    {
+      "timestamp": "2026-08-19",
+      "average_ppm": 5.43,
+      "minimum_ppm": 0.18,
+      "maximum_ppm": 31.20,
+      "sample_count": 604
+    }
+  ]
+}
+```
+
+React hanya menggambar grafik.
+
+React tidak menghitung ulang aggregation utama.
+
+---
+
+# 16.8 Environmental Status Distribution
+
+Recommended analytical output:
+
+```text
+NORMAL
+CAUTION
+WARNING
+DANGER
+CRITICAL
+```
+
+Source harus berasal dari stored status/severity yang sesuai source contract.
+
+Jika penelitian ingin menganalisis **raw Layer 1 status**, gunakan:
+
+```text
+H2SReading.status
+```
+
+Jika ingin menganalisis **Layer 4 canonical environmental severity**, gunakan:
+
+```text
+Alert.environmental_severity
+```
+
+Keduanya tidak boleh dicampur tanpa label.
+
+---
+
+# 16.9 ARKL Result Recap
+
+Endpoint:
+
+```text
+GET /api/v1/research/arkl-results/
+```
+
+Tujuan:
+
+```text
+research-ready ARKL record recap
+```
+
+Recommended fields:
+
+```text
+id
+worker_code
+calculation_type
+
+concentration_ppm
+concentration_mg_m3
+exposure_concentration_mg_m3
+
+rfc
+rq
+interpretation
+
+calculation_version
+source_simulated
+
+period_start
+period_end
+reading_count
+
+created_at
+```
+
+Filter:
+
+```text
+worker_code
+calculation_type
+interpretation
+calculation_version
+start
+end
+source_simulated
+```
+
+Endpoint tidak melakukan recalculation.
+
+---
+
+# 16.10 ARKL Risk Distribution
+
+Endpoint:
+
+```text
+GET /api/v1/research/risk-distribution/
+```
+
+Primary distribution:
+
+```text
+WITHIN_REFERENCE_LEVEL
+
+ABOVE_REFERENCE_LEVEL
+```
+
+Minimum output:
+
+```json
+{
+  "total": 100,
+  "distribution": [
+    {
+      "interpretation": "WITHIN_REFERENCE_LEVEL",
+      "count": 38,
+      "percentage": 38.0
+    },
+    {
+      "interpretation": "ABOVE_REFERENCE_LEVEL",
+      "count": 62,
+      "percentage": 62.0
+    }
+  ]
+}
+```
+
+Percentage dihitung:
+
+```text
+category_count
+────────────── × 100
+total_count
+```
+
+Ini descriptive statistic.
+
+Bukan probability of disease.
+
+---
+
+# 16.11 RQ Descriptive Statistics
+
+Recommended output:
+
+```text
+count
+minimum_rq
+maximum_rq
+average_rq
+```
+
+Median dapat ditambahkan nanti apabila diperlukan untuk penelitian.
+
+Untuk MVP, jangan menambahkan statistical framework besar hanya untuk median.
+
+Jika dibutuhkan nanti, implementasi dapat dipertimbangkan secara terpisah.
+
+---
+
+# 16.12 Exposure Summary
+
+Endpoint:
+
+```text
+GET /api/v1/research/exposure-summary/
+```
+
+Tujuan:
+
+```text
+descriptive overview
+of ExposureProfile records
+```
+
+Recommended output:
+
+```json
+{
+  "worker_count": 35,
+  "body_weight": {
+    "average": 58.2,
+    "minimum": 45.0,
+    "maximum": 82.0
+  },
+  "exposure_time": {
+    "average": 7.3,
+    "minimum": 3.0,
+    "maximum": 10.0
+  },
+  "exposure_frequency": {
+    "average": 245.2,
+    "minimum": 120.0,
+    "maximum": 300.0
+  },
+  "exposure_duration": {
+    "average": 8.7,
+    "minimum": 1.0,
+    "maximum": 25.0
+  }
+}
+```
+
+Inhalation rate dapat disertakan jika relevan terhadap kebutuhan penelitian.
+
+---
+
+# 16.13 Alert Summary
+
+Saya sarankan Phase 6 menambahkan analytical endpoint:
+
+```text
+GET /api/v1/research/alert-summary/
+```
+
+karena Layer 4 sudah menjadi bagian penting sistem.
+
+Minimum statistics:
+
+```text
+total alerts
+
+alert level distribution
+
+risk status distribution
+
+lifecycle distribution
+
+simulated vs physical
+
+escalation-related analytical data
+```
+
+Contoh:
+
+```json
+{
+  "total": 24,
+  "alert_levels": {
+    "LOW": 3,
+    "MEDIUM": 7,
+    "HIGH": 10,
+    "CRITICAL": 4
+  },
+  "lifecycle": {
+    "OPEN": 4,
+    "ACKNOWLEDGED": 3,
+    "RESOLVED": 17
+  }
+}
+```
+
+Catatan penting:
+
+`Alert` saat ini tidak menyimpan boolean `escalated`.
+
+Jadi jangan mengklaim jumlah escalation langsung dari model kecuali nanti ada rule analitik yang dapat direkonstruksi secara valid atau schema baru memang dibutuhkan.
+
+Untuk MVP, escalation statistic dapat ditunda.
+
+---
+
+# 16.14 Recommendation Frequency
+
+Optional but useful research output:
+
+```text
+recommendation code
+→ usage count
+```
+
+Contoh:
+
+```json
+{
+  "recommendations": [
+    {
+      "code": "MONITOR_H2S_LEVEL",
+      "count": 18
+    },
+    {
+      "code": "REDUCE_EXPOSURE_DURATION",
+      "count": 12
+    }
+  ]
+}
+```
+
+Karena `recommendation_codes` disimpan dalam JSONField, implementasi SQLite harus dibuat sederhana.
+
+Untuk MVP, lebih aman melakukan aggregation Python terhadap queryset yang telah difilter daripada membuat query JSON SQL yang kompleks dan database-specific.
+
+---
+
+# 16.15 Simulated Data Handling
+
+Semua research output yang membaca:
+
+```text
+H2SReading
+ARKLResult
+Alert
+```
+
+harus mempertimbangkan provenance.
+
+Recommended filter:
+
+```text
+source=all
+source=simulated
+source=physical
+```
+
+atau equivalent:
+
+```text
+source_simulated=true/false
+```
+
+Research report tidak boleh mencampur simulated dan physical data tanpa dapat dibedakan.
+
+Output sebaiknya menyertakan metadata:
+
+```json
+{
+  "source_scope": "all"
+}
+```
+
+atau:
+
+```json
+{
+  "source_scope": "physical"
+}
+```
+
+---
+
+# 16.16 Version Traceability
+
+ARKL research output harus mempertahankan:
+
+```text
+calculation_version
+```
+
+Alert research output harus mempertahankan:
+
+```text
+alert_rule_version
+```
+
+Tujuan:
+
+```text
+reproducibility
+scientific audit
+version comparison
+```
+
+Jangan menggabungkan hasil dari versi calculation/rule berbeda tanpa dapat ditelusuri.
+
+---
+
+# 16.17 Candidate REST API
+
+Revised MVP endpoints:
+
+```text
+GET /api/v1/research/h2s-summary/
+
+GET /api/v1/research/h2s-trends/
+
+GET /api/v1/research/arkl-results/
+
+GET /api/v1/research/risk-distribution/
+
+GET /api/v1/research/exposure-summary/
+
+GET /api/v1/research/alert-summary/
+```
+
+Candidate later:
+
+```text
+GET /api/v1/research/export/
+```
+
+Saya sarankan **export tidak dibuat pada langkah pertama**.
+
+Bangun aggregation API dahulu, lock, baru tambahkan export.
+
+---
+
+# 16.18 Export Strategy
+
+Jika diperlukan, MVP export sebaiknya:
+
+```text
+CSV
+```
+
+bukan langsung:
+
+```text
+PDF
+Excel
+complex report generator
+```
+
+Alasannya:
+
+```text
+portable
+research-friendly
+easy to validate
+minimal dependency
+works with SPSS/R/Python/Excel
+```
+
+Possible export datasets:
+
+```text
+H2S readings
+
+ARKL results
+
+Alerts
+
+Exposure profiles
+```
+
+Jangan membuat satu “mega CSV” yang mencampur data berbeda tanpa struktur ilmiah yang jelas.
+
+---
+
+# 16.19 React Responsibilities
+
+React bertanggung jawab untuk:
+
+```text
+charts
+
+tables
+
+filter UI
+
+date-range selector
+
+dashboard
+
+report preview
+
+download trigger
+
+presentation
+```
+
+React dapat menerima chart-ready data seperti:
+
+```text
+labels
+timestamps
+counts
+averages
+distribution
+```
+
+React tidak melakukan:
+
+```text
+RQ calculation
+
+scientific aggregation rule
+
+risk interpretation
+
+alert decision
+
+source classification
+```
+
+---
+
+# 16.20 Chart Candidates
+
+Phase 6 API sebaiknya memungkinkan React membuat:
+
+```text
+Line Chart
+H₂S concentration over time
+
+
+Bar Chart
+average/min/max H₂S by day
+
+
+Pie / Donut Chart
+ARKL interpretation distribution
+
+
+Bar Chart
+alert-level distribution
+
+
+Bar Chart
+risk-status distribution
+
+
+Table
+ARKL result recap
+
+
+Table
+Exposure profile recap
+```
+
+Visualization library merupakan frontend concern.
+
+Backend tidak perlu menghasilkan image chart.
+
+---
+
+# 16.21 Research Metadata
+
+Recommended response metadata:
+
+```text
+generated_at
+
+period_start
+
+period_end
+
+filters
+
+sample_count
+
+source_scope
+
+calculation_version
+```
+
+Contoh:
+
+```json
+{
+  "meta": {
+    "generated_at": "2026-08-20T12:00:00Z",
+    "start": "2026-08-01T00:00:00Z",
+    "end": "2026-08-20T23:59:59Z",
+    "source_scope": "physical"
+  },
+  "data": {}
+}
+```
+
+Hal ini meningkatkan reproducibility.
+
+---
+
+# 16.22 Empty Dataset Behaviour
+
+Empty research data bukan server error.
+
+Contoh:
+
+```text
+valid period
++
+no readings
+```
+
+sebaiknya menghasilkan:
+
+```http
+HTTP 200
+```
+
+dengan:
+
+```json
+{
+  "sample_count": 0,
+  "minimum_ppm": null,
+  "maximum_ppm": null,
+  "average_ppm": null
+}
+```
+
+Berbeda dengan:
+
+```text
+invalid period
+```
+
+yang menghasilkan:
+
+```http
+HTTP 400
+```
+
+---
+
+# 16.23 Precision Rules
+
+Untuk statistik research, jangan menggunakan:
+
+```text
+float equality
+```
+
+sebagai basis scientific validation.
+
+Source H₂S masih berasal dari FloatField, tetapi output statistik harus memiliki rounding policy yang terdokumentasi.
+
+Recommended presentation:
+
+```text
+ppm:
+2–6 decimal places depending endpoint
+
+RQ:
+preserve stored Decimal precision
+```
+
+Rounding untuk UI tidak boleh mengubah nilai yang disimpan di database.
+
+---
+
+# 16.24 Performance Rules
+
+Phase 6 dapat memiliki dataset lebih besar dari Layer 3/4.
+
+Gunakan:
+
+```text
+Django ORM aggregation
+
+Avg
+Min
+Max
+Count
+
+TruncHour
+TruncDay
+
+select_related
+
+database filtering
+```
+
+Hindari:
+
+```text
+load all rows
+↓
+iterate Python
+```
+
+kecuali operasi tersebut memang tidak praktis dilakukan secara portable melalui SQLite, seperti MVP JSON recommendation aggregation.
+
+Indexes existing time fields harus dimanfaatkan.
+
+---
+
+# 16.25 Observability
+
+Gunakan existing observability.
+
+HTTP:
+
+```text
+global middleware
+```
+
+Jika service logging diperlukan:
+
+```text
+smart_h2s.research
+```
+
+Jangan implement ulang:
+
+```text
+Request ID
+request logging
+error logging
+performance monitoring
+security audit
+redaction
+rotating logs
+```
+
+Research API tidak boleh log seluruh dataset response.
+
+---
+
+# 16.26 AI Boundary
+
+Phase 6 deterministic reporting harus berfungsi tanpa AI.
+
+Optional later:
+
+```text
+Research Statistics
+        ↓
+AI
+        ↓
+Narrative Summary
+```
+
+AI boleh:
+
+```text
+meringkas tren
+
+menjelaskan statistik
+
+membantu draft report
+
+membantu research narrative
+```
+
+AI tidak boleh:
+
+```text
+mengubah nilai statistik
+
+menghitung ulang ARKL menggunakan formula lain
+
+mengubah classification
+
+mengubah alert severity
+
+menghasilkan data penelitian palsu
+```
+
+AI-generated narrative harus berasal dari deterministic results.
+
+---
+
+# 16.27 Testing Requirements
+
+Minimum test scope:
+
+```text
+H2S Summary
+├── count
+├── minimum
+├── maximum
+├── average
+├── period filter
+├── device filter
+└── empty dataset
+
+
+H2S Trends
+├── raw
+├── hourly aggregation
+├── daily aggregation
+├── chronological ordering
+└── period filter
+
+
+ARKL Research
+├── result recap
+├── REALTIME filter
+├── HISTORICAL filter
+├── interpretation filter
+├── version preservation
+└── simulated provenance
+
+
+Risk Distribution
+├── WITHIN count
+├── ABOVE count
+├── total
+├── percentage
+└── empty dataset
+
+
+Exposure Summary
+├── worker count
+├── average
+├── min
+├── max
+└── empty dataset
+
+
+Alert Summary
+├── total
+├── alert level distribution
+├── risk status distribution
+├── lifecycle distribution
+└── simulated provenance
+
+
+API
+├── valid request
+├── invalid period
+├── filtering
+├── empty result
+└── response contract
+```
+
+---
+
+# 16.28 Regression Requirements
+
+Full regression wajib memastikan Phase 6 tidak mengubah:
+
+```text
+MQTT ingestion
+
+H2SReading persistence
+
+Device API
+
+Worker API
+
+ExposureProfile API
+
+ARKL v1.1
+
+Alert Engine v1.0.0-MVP
+
+Alert lifecycle
+
+core observability
+```
+
+Phase 6 harus read-oriented.
+
+Tidak boleh ada side effect terhadap source records melalui research endpoints.
+
+---
+
+# 16.29 Definition of Done
+
+```text
+[ ] research app/module architecture locked
+
+[ ] time-range contract implemented
+
+[ ] H₂S historical summary implemented
+
+[ ] H₂S trend API implemented
+
+[ ] raw trend supported
+
+[ ] hourly trend aggregation supported
+
+[ ] daily trend aggregation supported
+
+[ ] ARKL result recap implemented
+
+[ ] ARKL risk distribution implemented
+
+[ ] exposure summary implemented
+
+[ ] Alert summary implemented
+
+[ ] simulated provenance supported
+
+[ ] calculation_version preserved
+
+[ ] alert_rule_version preserved
+
+[ ] chart-ready output implemented
+
+[ ] empty dataset contract implemented
+
+[ ] invalid period rejected
+
+[ ] React does not perform scientific calculation
+
+[ ] reporting does not duplicate ARKL formula
+
+[ ] reporting does not duplicate Alert Engine rules
+
+[ ] unit tests pass
+
+[ ] API tests pass
+
+[ ] full regression passes
+
+[ ] Ruff clean
+
+[ ] format clean
+
+[ ] Django check clean
+
+[ ] OpenAPI clean
+
+[ ] pip-audit clean
+
+[ ] optional CSV export evaluated after core reporting lock
+```
+
+---
+
+# 16.30 Recommended Phase 6 Implementation Order
+
+Saya sarankan Phase 6 jangan langsung membuat semua endpoint sekaligus.
+
+```text
+Phase 6A
+Research Contract
+        ↓
+time-range rules
+filter rules
+source provenance
+empty-result behaviour
+response metadata
+        ↓
+
+Phase 6B
+Environmental Analytics
+        ↓
+H₂S Summary
+        ↓
+H₂S Trends
+        ↓
+tests
+        ↓
+
+Phase 6C
+Risk & Exposure Analytics
+        ↓
+ARKL Recap
+        ↓
+Risk Distribution
+        ↓
+Exposure Summary
+        ↓
+tests
+        ↓
+
+Phase 6D
+Alert Analytics
+        ↓
+Alert Summary
+        ↓
+recommendation frequency if needed
+        ↓
+tests
+        ↓
+
+Phase 6E
+REST API
+        ↓
+OpenAPI
+        ↓
+React-ready verification
+        ↓
+
+Phase 6F
+Full Regression
+        ↓
+E2E
+        ↓
+Phase 6 Core Lock
+        ↓
+
+Phase 6G — Optional
+CSV Export
+```
+
+---
+
+# 16.31 Recommended MVP Scope
+
+Agar proyek tidak melebar, saya sarankan **core Phase 6 hanya mengunci 6 endpoint**:
+
+```text
+GET /api/v1/research/h2s-summary/
+
+GET /api/v1/research/h2s-trends/
+
+GET /api/v1/research/arkl-results/
+
+GET /api/v1/research/risk-distribution/
+
+GET /api/v1/research/exposure-summary/
+
+GET /api/v1/research/alert-summary/
+```
+
+Jangan dulu menambahkan:
+
+```text
+PDF generator
+
+Excel generator
+
+AI report agent
+
+statistical hypothesis testing
+
+machine learning analytics
+
+complex BI dashboard
+
+scheduled reporting
+```
+
+Semua itu bisa menjadi tahap setelah deterministic research API stabil.
+
+---
+
+## Kesimpulan
+
+Catatan awal Anda sudah benar secara arah. Perubahan paling penting yang saya sarankan adalah:
+
+```text
+AlertResult
+→ Alert
+```
+
+lalu menambahkan `alert-summary`, time-range contract, simulated provenance, empty dataset behavior, version traceability, serta memisahkan core analytics dari optional export.
+
+Dengan scope ini, **Phase 6 tetap kecil tetapi secara penelitian jauh lebih kuat** karena hasilnya sudah mendukung descriptive statistics, tren waktu, ARKL recap, risk distribution, exposure overview, dan Layer 4 alert analysis tanpa mengulang formula ilmiah yang sudah dikunci.
 
 # 17. AI Boundary
 
@@ -3009,5 +5859,5 @@ AI DOES NOT DEFINE THE RISK.
 
 ```
 
-Versi ini sudah lebih cocok dijadikan **dokumen hidup utama proyek**. Perubahan paling besar dibanding SOP v1 adalah Phase test tidak lagi berdiri sendiri, Phase ARKL dipecah menjadi 4A–4F, `lifetime` diganti menjadi `historical` untuk MVP, scientific lock dan versioning sudah formal, serta observability diperlakukan sebagai infrastructure global yang tidak boleh dibuat ulang. 
+Versi ini sudah lebih cocok dijadikan **dokumen hidup utama proyek**. Perubahan paling besar dibanding SOP v1 adalah Phase test tidak lagi berdiri sendiri, Phase ARKL dipecah menjadi 4A–4F, `lifetime` diganti menjadi `historical` untuk MVP, scientific lock dan versioning sudah formal, serta observability diperlakukan sebagai infrastructure global yang tidak boleh dibuat ulang.
 ```

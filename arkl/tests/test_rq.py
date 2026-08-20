@@ -6,9 +6,10 @@ from arkl.services.rq import calculate_rq
 from arkl.services.validation import ARKLValidationError
 
 
-def test_zero_exposure_concentration_produces_zero_rq():
+def test_zero_intake_produces_zero_rq():
     result = calculate_rq(
-        exposure_concentration_mg_m3=0,
+        intake=0,
+        rfc=Decimal("0.002"),
     )
 
     assert result == Decimal("0")
@@ -16,7 +17,8 @@ def test_zero_exposure_concentration_produces_zero_rq():
 
 def test_rq_equal_one():
     result = calculate_rq(
-        exposure_concentration_mg_m3=Decimal("0.002"),
+        intake=Decimal("0.002"),
+        rfc=Decimal("0.002"),
     )
 
     assert result == Decimal("1")
@@ -24,7 +26,8 @@ def test_rq_equal_one():
 
 def test_rq_below_one():
     result = calculate_rq(
-        exposure_concentration_mg_m3=Decimal("0.001"),
+        intake=Decimal("0.001"),
+        rfc=Decimal("0.002"),
     )
 
     assert result == Decimal("0.5")
@@ -32,7 +35,8 @@ def test_rq_below_one():
 
 def test_rq_above_one():
     result = calculate_rq(
-        exposure_concentration_mg_m3=Decimal("0.004"),
+        intake=Decimal("0.004"),
+        rfc=Decimal("0.002"),
     )
 
     assert result == Decimal("2")
@@ -44,16 +48,17 @@ def test_zero_rfc_is_rejected():
         match="rfc must be greater than zero",
     ):
         calculate_rq(
-            exposure_concentration_mg_m3=1,
+            intake=1,
             rfc=0,
         )
 
 
-def test_negative_exposure_concentration_is_rejected():
+def test_negative_intake_is_rejected():
     with pytest.raises(
         ARKLValidationError,
-        match="cannot be negative",
+        match="intake cannot be negative",
     ):
         calculate_rq(
-            exposure_concentration_mg_m3=-1,
+            intake=-1,
+            rfc=Decimal("0.002"),
         )

@@ -43,6 +43,14 @@ class ARKLResult(models.Model):
         decimal_places=6,
     )
 
+    exposure_concentration_mg_m3 = models.DecimalField(
+        max_digits=14,
+        decimal_places=6,
+        null=True,
+        blank=True,
+    )
+
+    # Research / exposure snapshot fields.
     body_weight = models.DecimalField(
         max_digits=10,
         decimal_places=4,
@@ -68,14 +76,19 @@ class ARKLResult(models.Model):
         decimal_places=4,
     )
 
+    # Legacy v1.0 calculation fields.
     averaging_time = models.DecimalField(
         max_digits=14,
         decimal_places=4,
+        null=True,
+        blank=True,
     )
 
     intake = models.DecimalField(
         max_digits=24,
         decimal_places=12,
+        null=True,
+        blank=True,
     )
 
     rfc = models.DecimalField(
@@ -125,14 +138,6 @@ class ARKLResult(models.Model):
 
     def __str__(self):
         return f"{self.calculation_type} {self.worker.code} RQ={self.rq}"
-
-
-exposure_concentration_mg_m3 = models.DecimalField(
-    max_digits=14,
-    decimal_places=6,
-    null=True,
-    blank=True,
-)
 ```
 
 ## `serializers.py`
@@ -196,6 +201,7 @@ class ARKLResultSerializer(serializers.ModelSerializer):
             "calculation_type",
             "concentration_ppm",
             "concentration_mg_m3",
+            "exposure_concentration_mg_m3",
             "body_weight",
             "exposure_time",
             "exposure_frequency",
@@ -216,26 +222,20 @@ class ARKLResultSerializer(serializers.ModelSerializer):
 
         read_only_fields = fields
 
-    def get_device_code(self, obj):
+    @extend_schema_field(
+        serializers.CharField(
+            allow_null=True,
+        )
+    )
+    def get_device_code(
+        self,
+        obj: ARKLResult,
+    ) -> str | None:
         if obj.reading_id is None:
             return None
 
         return obj.reading.device.device_code
 
-
-@extend_schema_field(
-    serializers.CharField(
-        allow_null=True,
-    )
-)
-def get_device_code(
-    self,
-    obj: ARKLResult,
-) -> str | None:
-    if obj.reading_id is None:
-        return None
-
-    return obj.reading.device.device_code
 ```
 
 ## `views.py`
@@ -361,13 +361,13 @@ class ARKLResultListView(ListAPIView):
 class ARKLResultDetailView(RetrieveAPIView):
     queryset = ARKL_RESULT_QUERYSET.all()
     serializer_class = ARKLResultSerializer
+
 ```
 
 ## `services/constants.py`
 
 ```python
 from decimal import Decimal
-
 
 H2S_PPM_TO_MG_M3 = Decimal("1.40")
 H2S_RFC_MG_M3 = Decimal("0.002")
@@ -379,6 +379,7 @@ ARKL_CALCULATION_VERSION = "1.1.0-MVP"
 
 RQ_WITHIN_REFERENCE_LEVEL = "WITHIN_REFERENCE_LEVEL"
 RQ_ABOVE_REFERENCE_LEVEL = "ABOVE_REFERENCE_LEVEL"
+
 ```
 
 ## `services/validation.py`
@@ -387,15 +388,27 @@ RQ_ABOVE_REFERENCE_LEVEL = "ABOVE_REFERENCE_LEVEL"
 from dataclasses import dataclass
 from decimal import Decimal, InvalidOperation
 
+from arkl.services.constants import (
+    DAYS_PER_YEAR,
+    HOURS_PER_DAY,
+)
+
 
 class ARKLValidationError(ValueError):
     pass
 
 
-def to_decimal(value, field_name: str) -> Decimal:
+def to_decimal(
+    value,
+    field_name: str,
+) -> Decimal:
     try:
         result = Decimal(str(value))
-    except (InvalidOperation, ValueError, TypeError) as exc:
+    except (
+        InvalidOperation,
+        ValueError,
+        TypeError,
+    ) as exc:
         raise ARKLValidationError(f"{field_name} must be numeric.") from exc
 
     if not result.is_finite():
@@ -427,22 +440,27 @@ def validate_arkl_inputs(
         concentration_ppm,
         "concentration_ppm",
     )
+
     weight = to_decimal(
         body_weight,
         "body_weight",
     )
-    time = to_decimal(
+
+    exposure_time_value = to_decimal(
         exposure_time,
         "exposure_time",
     )
-    frequency = to_decimal(
+
+    exposure_frequency_value = to_decimal(
         exposure_frequency,
         "exposure_frequency",
     )
+
     duration = to_decimal(
         exposure_duration,
         "exposure_duration",
     )
+
     rate = to_decimal(
         inhalation_rate,
         "inhalation_rate",
@@ -454,10 +472,10 @@ def validate_arkl_inputs(
     if weight <= 0:
         raise ARKLValidationError("body_weight must be greater than zero.")
 
-    if not Decimal("0") <= time <= Decimal("24"):
+    if not (Decimal("0") <= exposure_time_value <= HOURS_PER_DAY):
         raise ARKLValidationError("exposure_time must be between 0 and 24 hour/day.")
 
-    if not Decimal("0") <= frequency <= Decimal("365"):
+    if not (Decimal("0") <= exposure_frequency_value <= DAYS_PER_YEAR):
         raise ARKLValidationError(
             "exposure_frequency must be between 0 and 365 day/year."
         )
@@ -471,11 +489,12 @@ def validate_arkl_inputs(
     return ARKLInputData(
         concentration_ppm=concentration,
         body_weight_kg=weight,
-        exposure_time_hour_day=time,
-        exposure_frequency_day_year=frequency,
+        exposure_time_hour_day=exposure_time_value,
+        exposure_frequency_day_year=(exposure_frequency_value),
         exposure_duration_year=duration,
         inhalation_rate_m3_hour=rate,
     )
+
 ```
 
 ## `services/rq.py`
@@ -494,7 +513,7 @@ def calculate_rq(
     *,
     exposure_concentration_mg_m3,
     rfc=H2S_RFC_MG_M3,
-):
+) -> Decimal:
     exposure_concentration = to_decimal(
         exposure_concentration_mg_m3,
         "exposure_concentration_mg_m3",
@@ -506,12 +525,13 @@ def calculate_rq(
     )
 
     if exposure_concentration < 0:
-        raise ARKLValidationError("exposure_concentration_mg_m3 cannot be negative")
+        raise ARKLValidationError("exposure_concentration_mg_m3 cannot be negative.")
 
     if reference_concentration <= 0:
-        raise ARKLValidationError("rfc must be greater than zero")
+        raise ARKLValidationError("rfc must be greater than zero.")
 
     return exposure_concentration / reference_concentration
+
 ```
 
 ## `services/calculator.py`
@@ -552,50 +572,11 @@ def _get_exposure_profile(
         raise ARKLCalculationError("Worker does not have an exposure profile.") from exc
 
 
-def _calculate_values(
-    *,
-    concentration_ppm,
-    exposure_profile: ExposureProfile,
-) -> dict:
-    validated = validate_arkl_inputs(
-        concentration_ppm=concentration_ppm,
-        body_weight=exposure_profile.body_weight,
-        exposure_time=exposure_profile.exposure_time,
-        exposure_frequency=exposure_profile.exposure_frequency,
-        exposure_duration=exposure_profile.exposure_duration,
-        inhalation_rate=exposure_profile.inhalation_rate,
-    )
-
-    concentration_mg_m3 = ppm_to_mg_m3(validated.concentration_ppm)
-
-    exposure_concentration_mg_m3 = calculate_exposure_concentration(
-        concentration_mg_m3=concentration_mg_m3,
-        exposure_time_hour_day=(validated.exposure_time_hour_day),
-        exposure_frequency_day_year=(validated.exposure_frequency_day_year),
-    )
-
-    rq = calculate_rq(
-        exposure_concentration_mg_m3=(exposure_concentration_mg_m3),
-        rfc=H2S_RFC_MG_M3,
-    )
-
-    interpretation = interpret_rq(rq)
-
-    return {
-        "concentration_ppm": (validated.concentration_ppm),
-        "concentration_mg_m3": (concentration_mg_m3),
-        "exposure_concentration_mg_m3": (exposure_concentration_mg_m3),
-        "body_weight": (validated.body_weight_kg),
-        "exposure_time": (validated.exposure_time_hour_day),
-        "exposure_frequency": (validated.exposure_frequency_day_year),
-        "exposure_duration": (validated.exposure_duration_year),
-        "inhalation_rate": (validated.inhalation_rate_m3_hour),
-        "averaging_time": None,
-        "intake": None,
-        "rfc": H2S_RFC_MG_M3,
-        "rq": rq,
-        "interpretation": interpretation,
-    }
+def _validate_active_device(
+    device: Device,
+) -> None:
+    if not device.is_active:
+        raise ARKLCalculationError("Device is inactive.")
 
 
 def _get_latest_reading(
@@ -618,11 +599,48 @@ def _get_latest_reading(
     return reading
 
 
-def _validate_active_device(
-    device: Device,
-) -> None:
-    if not device.is_active:
-        raise ARKLCalculationError("Device is inactive.")
+def _calculate_values(
+    *,
+    concentration_ppm,
+    exposure_profile: ExposureProfile,
+) -> dict:
+    validated = validate_arkl_inputs(
+        concentration_ppm=concentration_ppm,
+        body_weight=exposure_profile.body_weight,
+        exposure_time=exposure_profile.exposure_time,
+        exposure_frequency=(exposure_profile.exposure_frequency),
+        exposure_duration=(exposure_profile.exposure_duration),
+        inhalation_rate=(exposure_profile.inhalation_rate),
+    )
+
+    concentration_mg_m3 = ppm_to_mg_m3(validated.concentration_ppm)
+
+    exposure_concentration_mg_m3 = calculate_exposure_concentration(
+        concentration_mg_m3=(concentration_mg_m3),
+        exposure_time_hour_day=(validated.exposure_time_hour_day),
+        exposure_frequency_day_year=(validated.exposure_frequency_day_year),
+    )
+
+    rq = calculate_rq(
+        exposure_concentration_mg_m3=(exposure_concentration_mg_m3),
+        rfc=H2S_RFC_MG_M3,
+    )
+
+    return {
+        "concentration_ppm": (validated.concentration_ppm),
+        "concentration_mg_m3": (concentration_mg_m3),
+        "exposure_concentration_mg_m3": (exposure_concentration_mg_m3),
+        "body_weight": (validated.body_weight_kg),
+        "exposure_time": (validated.exposure_time_hour_day),
+        "exposure_frequency": (validated.exposure_frequency_day_year),
+        "exposure_duration": (validated.exposure_duration_year),
+        "inhalation_rate": (validated.inhalation_rate_m3_hour),
+        "averaging_time": None,
+        "intake": None,
+        "rfc": H2S_RFC_MG_M3,
+        "rq": rq,
+        "interpretation": interpret_rq(rq),
+    }
 
 
 @transaction.atomic
@@ -693,43 +711,33 @@ def calculate_historical_risk(
     except ARKLValidationError as exc:
         raise ARKLCalculationError(str(exc)) from exc
 
-    source_simulated = any(reading.simulated for reading in readings)
-
     return ARKLResult.objects.create(
         worker=worker,
         reading=None,
         calculation_type=(ARKLResult.CalculationType.HISTORICAL),
         calculation_version=ARKL_CALCULATION_VERSION,
-        source_simulated=source_simulated,
+        source_simulated=any(reading.simulated for reading in readings),
         period_start=period_start,
         period_end=period_end,
         reading_count=len(readings),
         **values,
     )
+
 ```
 
 ## `services/exposure_concentration.py`
 
 ```python
-from decimal import Decimal, InvalidOperation
+from decimal import Decimal
 
 from arkl.services.constants import (
     DAYS_PER_YEAR,
     HOURS_PER_DAY,
 )
-from arkl.services.validation import ARKLValidationError
-
-
-def _to_decimal(value, field_name):
-    try:
-        result = Decimal(str(value))
-    except (InvalidOperation, TypeError, ValueError) as exc:
-        raise ARKLValidationError(f"{field_name} must be numeric") from exc
-
-    if not result.is_finite():
-        raise ARKLValidationError(f"{field_name} must be finite")
-
-    return result
+from arkl.services.validation import (
+    ARKLValidationError,
+    to_decimal,
+)
 
 
 def calculate_exposure_concentration(
@@ -737,31 +745,31 @@ def calculate_exposure_concentration(
     concentration_mg_m3,
     exposure_time_hour_day,
     exposure_frequency_day_year,
-):
-    concentration = _to_decimal(
+) -> Decimal:
+    concentration = to_decimal(
         concentration_mg_m3,
         "concentration_mg_m3",
     )
 
-    exposure_time = _to_decimal(
+    exposure_time = to_decimal(
         exposure_time_hour_day,
         "exposure_time_hour_day",
     )
 
-    exposure_frequency = _to_decimal(
+    exposure_frequency = to_decimal(
         exposure_frequency_day_year,
         "exposure_frequency_day_year",
     )
 
     if concentration < 0:
-        raise ARKLValidationError("concentration_mg_m3 cannot be negative")
+        raise ARKLValidationError("concentration_mg_m3 cannot be negative.")
 
     if not Decimal("0") <= exposure_time <= HOURS_PER_DAY:
-        raise ARKLValidationError("exposure_time_hour_day must be between 0 and 24")
+        raise ARKLValidationError("exposure_time_hour_day must be between 0 and 24.")
 
     if not Decimal("0") <= exposure_frequency <= DAYS_PER_YEAR:
         raise ARKLValidationError(
-            "exposure_frequency_day_year must be between 0 and 365"
+            "exposure_frequency_day_year must be between 0 and 365."
         )
 
     return (
@@ -769,6 +777,7 @@ def calculate_exposure_concentration(
         * (exposure_time / HOURS_PER_DAY)
         * (exposure_frequency / DAYS_PER_YEAR)
     )
+
 ```
 
 ## `tests/test_exposure_concentration.py`
@@ -842,6 +851,19 @@ def test_exposure_frequency_above_365_is_rejected():
             exposure_time_hour_day=8,
             exposure_frequency_day_year=366,
         )
+
+
+def test_negative_concentration_is_rejected():
+    with pytest.raises(
+        ARKLValidationError,
+        match="cannot be negative",
+    ):
+        calculate_exposure_concentration(
+            concentration_mg_m3=-1,
+            exposure_time_hour_day=8,
+            exposure_frequency_day_year=250,
+        )
+
 ```
 
 ## `tests/test_rq.py`
@@ -856,21 +878,33 @@ from arkl.services.validation import ARKLValidationError
 
 
 def test_zero_exposure_concentration_produces_zero_rq():
-    assert calculate_rq(exposure_concentration_mg_m3=0) == Decimal("0")
+    result = calculate_rq(
+        exposure_concentration_mg_m3=0,
+    )
+
+    assert result == Decimal("0")
 
 
 def test_rq_equal_one():
-    assert calculate_rq(exposure_concentration_mg_m3=Decimal("0.002")) == Decimal("1")
+    result = calculate_rq(
+        exposure_concentration_mg_m3=Decimal("0.002"),
+    )
+
+    assert result == Decimal("1")
 
 
 def test_rq_below_one():
-    result = calculate_rq(exposure_concentration_mg_m3=Decimal("0.001"))
+    result = calculate_rq(
+        exposure_concentration_mg_m3=Decimal("0.001"),
+    )
 
     assert result == Decimal("0.5")
 
 
 def test_rq_above_one():
-    result = calculate_rq(exposure_concentration_mg_m3=Decimal("0.004"))
+    result = calculate_rq(
+        exposure_concentration_mg_m3=Decimal("0.004"),
+    )
 
     assert result == Decimal("2")
 
@@ -884,6 +918,17 @@ def test_zero_rfc_is_rejected():
             exposure_concentration_mg_m3=1,
             rfc=0,
         )
+
+
+def test_negative_exposure_concentration_is_rejected():
+    with pytest.raises(
+        ARKLValidationError,
+        match="cannot be negative",
+    ):
+        calculate_rq(
+            exposure_concentration_mg_m3=-1,
+        )
+
 ```
 
 ## `tests/test_calculator.py`
@@ -1217,11 +1262,9 @@ def test_realtime_rejects_inactive_device():
 ## `tests/test_models.py`
 
 ```python
-from datetime import timedelta
 from decimal import Decimal
 
 import pytest
-from django.utils import timezone
 
 from arkl.models import ARKLResult
 from arkl.services.constants import ARKL_CALCULATION_VERSION
@@ -1256,17 +1299,18 @@ def test_realtime_arkl_result_snapshot_can_be_stored():
         calculation_type=ARKLResult.CalculationType.REALTIME,
         concentration_ppm=Decimal("10"),
         concentration_mg_m3=Decimal("14"),
+        exposure_concentration_mg_m3=Decimal("3.196347"),
         body_weight=Decimal("55"),
         exposure_time=Decimal("8"),
         exposure_frequency=Decimal("250"),
         exposure_duration=Decimal("10"),
         inhalation_rate=Decimal("0.83"),
-        averaging_time=Decimal("3650"),
-        intake=Decimal("0.115808219178"),
+        averaging_time=None,
+        intake=None,
         rfc=Decimal("0.002"),
-        rq=Decimal("57.904109589"),
+        rq=Decimal("1598.1735"),
         interpretation="ABOVE_REFERENCE_LEVEL",
-        calculation_version=ARKL_CALCULATION_VERSION,
+        calculation_version=(ARKL_CALCULATION_VERSION),
         source_simulated=True,
     )
 
@@ -1275,64 +1319,29 @@ def test_realtime_arkl_result_snapshot_can_be_stored():
     assert result.pk is not None
     assert result.worker == worker
     assert result.reading == reading
+
     assert result.calculation_type == "REALTIME"
-    assert result.concentration_ppm == Decimal("10.000000")
-    assert result.source_simulated is True
+
+    assert result.exposure_concentration_mg_m3 is not None
+
+    assert result.intake is None
+    assert result.averaging_time is None
+
     assert result.calculation_version == ARKL_CALCULATION_VERSION
 
 
 @pytest.mark.django_db
-def test_historical_arkl_result_can_store_period_metadata():
+def test_legacy_v1_result_can_exist_without_exposure_concentration():
     worker = Worker.objects.create(
-        code="PML-002",
-    )
-
-    period_end = timezone.now()
-    period_start = period_end - timedelta(hours=8)
-
-    result = ARKLResult.objects.create(
-        worker=worker,
-        reading=None,
-        calculation_type=ARKLResult.CalculationType.HISTORICAL,
-        concentration_ppm=Decimal("12.5"),
-        concentration_mg_m3=Decimal("17.5"),
-        body_weight=Decimal("60"),
-        exposure_time=Decimal("8"),
-        exposure_frequency=Decimal("250"),
-        exposure_duration=Decimal("5"),
-        inhalation_rate=Decimal("0.83"),
-        averaging_time=Decimal("1825"),
-        intake=Decimal("0.1"),
-        rfc=Decimal("0.002"),
-        rq=Decimal("50"),
-        interpretation="ABOVE_REFERENCE_LEVEL",
-        calculation_version=ARKL_CALCULATION_VERSION,
-        source_simulated=True,
-        period_start=period_start,
-        period_end=period_end,
-        reading_count=120,
-    )
-
-    result.refresh_from_db()
-
-    assert result.calculation_type == "HISTORICAL"
-    assert result.reading is None
-    assert result.reading_count == 120
-    assert result.period_start is not None
-    assert result.period_end is not None
-
-
-@pytest.mark.django_db
-def test_arkl_result_keeps_exposure_snapshot():
-    worker = Worker.objects.create(
-        code="PML-003",
+        code="PML-LEGACY-001",
     )
 
     result = ARKLResult.objects.create(
         worker=worker,
-        calculation_type=ARKLResult.CalculationType.HISTORICAL,
+        calculation_type=(ARKLResult.CalculationType.HISTORICAL),
         concentration_ppm=Decimal("10"),
         concentration_mg_m3=Decimal("14"),
+        exposure_concentration_mg_m3=None,
         body_weight=Decimal("55"),
         exposure_time=Decimal("8"),
         exposure_frequency=Decimal("250"),
@@ -1343,11 +1352,18 @@ def test_arkl_result_keeps_exposure_snapshot():
         rfc=Decimal("0.002"),
         rq=Decimal("50"),
         interpretation="ABOVE_REFERENCE_LEVEL",
-        calculation_version=ARKL_CALCULATION_VERSION,
+        calculation_version="1.0.0-MVP",
         source_simulated=True,
     )
 
-    assert result.body_weight == Decimal("55")
+    result.refresh_from_db()
+
+    assert result.calculation_version == "1.0.0-MVP"
+
+    assert result.exposure_concentration_mg_m3 is None
+
+    assert result.intake is not None
+
 ```
 
 ## `tests/test_api.py`
@@ -1425,7 +1441,7 @@ def test_realtime_arkl_api_creates_result(client):
     assert data["calculation_type"] == "REALTIME"
     assert data["worker"] == worker.pk
     assert data["reading"] == reading.pk
-    assert data["calculation_version"] == "1.0.0-MVP"
+    assert data["calculation_version"] == "1.1.0-MVP"
 
     assert data["interpretation"] in {
         "WITHIN_REFERENCE_LEVEL",
@@ -1454,7 +1470,7 @@ def test_realtime_api_ignores_client_calculated_values(
             "worker": worker.pk,
             "device": device.pk,
             "rq": 0,
-            "intake": 0,
+            "exposure_concentration_mg_m3": 0,
             "interpretation": "WITHIN_REFERENCE_LEVEL",
         },
         content_type="application/json",
@@ -1464,12 +1480,14 @@ def test_realtime_api_ignores_client_calculated_values(
 
     data = response.json()
 
-    assert float(data["rq"]) != 0
-    assert float(data["intake"]) != 0
+    assert float(data["rq"]) > 0
 
+    assert float(data["exposure_concentration_mg_m3"]) > 0
 
-@pytest.mark.django_db
-def test_realtime_api_without_profile_returns_400(client):
+    assert data["intake"] is None
+    assert data["averaging_time"] is None
+
+    assert data["calculation_version"] == "1.1.0-MVP"
     worker = Worker.objects.create(
         code="PML-NO-PROFILE-API",
     )
@@ -1756,5 +1774,5 @@ def test_arkl_result_filter_by_calculation_type(client):
 
     assert response.status_code == 200
     assert response.json()["count"] == 1
-```
 
+```
