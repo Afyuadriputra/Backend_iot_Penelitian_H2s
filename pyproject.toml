@@ -5,7 +5,7 @@ target-version = "py312"
 select = ["E", "F", "I", "B", "RUF"]
 
 [tool.ruff.lint.per-file-ignores]
-"**/migrations/*.py" = ["RUF012", "E501"]
+"**/migrations/*.py" = ["RUF012", "E501", "I001"]
 "**/models.py" = ["RUF012"]
 "**/serializers.py" = ["RUF012"]
 "**/views.py" = ["RUF012"]

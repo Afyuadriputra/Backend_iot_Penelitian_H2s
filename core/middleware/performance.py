@@ -27,7 +27,8 @@ class PerformanceMiddleware:
 
         if duration_ms >= self.slow_request_ms:
             logger.warning(
-                "slow_request method=%s path=%s status=%s duration_ms=%.2f threshold_ms=%s",
+                "slow_request method=%s path=%s status=%s "
+                "duration_ms=%.2f threshold_ms=%s",
                 request.method,
                 request.path,
                 response.status_code,

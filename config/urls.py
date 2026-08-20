@@ -19,6 +19,10 @@ urlpatterns = [
         include("exposure.urls"),
     ),
     path(
+        "api/v1/",
+        include("arkl.urls"),
+    ),
+    path(
         "api/schema/",
         SpectacularAPIView.as_view(),
         name="schema",
@@ -27,5 +31,9 @@ urlpatterns = [
         "api/docs/",
         SpectacularSwaggerView.as_view(url_name="schema"),
         name="swagger-ui",
+    ),
+    path(
+        "api/v1/alerts/",
+        include("alerts.urls"),
     ),
 ]

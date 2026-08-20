@@ -3,7 +3,7 @@
 **Project:** Smart H₂S — Environmental Health Risk Assessment
 **Module:** Layer 3 — Smart ARKL Services
 **Document:** `ARKL_CALCULATION_SPEC.md`
-**Version:** `1.0.0-MVP`
+**Version:** `1.1.0-MVP`
 **Status:** `MVP SCIENTIFIC LOCK`
 **Last Updated:** 20 August 2026
 
@@ -11,20 +11,21 @@
 
 # 1. Purpose
 
-Dokumen ini merupakan **source of truth metodologi perhitungan ARKL untuk MVP Smart H₂S**.
+Dokumen ini merupakan **source of truth metodologi perhitungan risiko inhalasi H₂S untuk MVP Smart H₂S**.
 
-Tujuannya adalah memastikan bahwa seluruh perhitungan:
+Tujuan utama:
 
 - deterministic;
 - reproducible;
-- memiliki satuan eksplisit;
-- memiliki konstanta yang terdokumentasi;
+- dimensionally consistent;
+- menggunakan satuan eksplisit;
+- konstanta terdokumentasi;
+- calculation versioned;
 - tidak bergantung pada AI/LLM;
-- tidak tersebar di React, View, Serializer, atau Model;
-- dapat diuji dengan known-case unit tests;
-- dapat direvisi melalui versioning apabila metodologi penelitian diperbarui.
+- dapat diuji menggunakan known-case tests;
+- dapat diaudit kembali ketika metodologi penelitian berubah.
 
-Prinsip utama:
+Prinsip:
 
 ```text
 DEFINE THE SCIENCE
@@ -32,69 +33,111 @@ DEFINE THE SCIENCE
 IMPLEMENT THE SCIENCE
         ↓
 TEST THE IMPLEMENTATION
-```
-
-Bukan:
-
-```text
-IMPLEMENT FIRST
         ↓
-ASSUME THE SCIENCE
+VERSION THE RESULT
 ```
 
 ---
 
-# 2. MVP Scope
+# 2. Methodology Change — v1.1.0
 
-MVP Layer 3 melakukan analisis risiko kesehatan lingkungan untuk:
+Version `1.0.0-MVP` menggunakan:
+
+```text
+Intake (mg/kg-day)
+        ↓
+Intake / RfC (mg/m³)
+        ↓
+RQ
+```
+
+Pendekatan tersebut dihentikan sebagai primary H₂S risk calculation karena numerator dan denominator tidak menggunakan dimensi yang sama.
+
+Version `1.1.0-MVP` menggunakan:
+
+```text
+Exposure Concentration (mg/m³)
+        ↓
+Exposure Concentration / RfC (mg/m³)
+        ↓
+RQ / HQ
+```
+
+Sehingga:
+
+```text
+mg/m³
+──────
+mg/m³
+
+=
+dimensionless
+```
+
+Status:
+
+```text
+LOCKED FOR MVP v1.1
+```
+
+---
+
+# 3. MVP Scope
+
+MVP Layer 3 melakukan analisis:
 
 ```text
 Pollutant       : Hydrogen Sulfide / H₂S
 Exposure route  : Inhalation
 Risk type       : Non-carcinogenic
-Primary metrics : Intake dan Risk Quotient (RQ)
+Primary metric  : Risk Quotient / Hazard Quotient
+Reference value : Inhalation RfC
 ```
 
 Sistem tidak melakukan:
 
 ```text
 medical diagnosis
-prediction of ISPA probability
+ISPA probability prediction
 clinical diagnosis
 individual disease prediction
 ```
 
-ARKL digunakan sebagai **risk characterization**, bukan alat diagnosis.
+RQ/HQ adalah:
+
+```text
+risk characterization relative to a reference concentration
+```
+
+bukan probability penyakit.
 
 ---
 
-# 3. Calculation Pipeline
+# 4. Calculation Pipeline
 
-Alur utama:
+Pipeline v1.1:
 
 ```text
 H₂S Reading
      +
-Exposure Profile
+Exposure Pattern
      ↓
 Input Validation
      ↓
-Unit Conversion
+ppm → mg/m³
      ↓
-Concentration Selection
-     ↓
-Intake Calculation
+Exposure Concentration Adjustment
      ↓
 RfC
      ↓
-RQ Calculation
+RQ / HQ
      ↓
-Risk Interpretation
+Interpretation
      ↓
 ARKLResult
 ```
 
-Implementasi backend:
+Backend:
 
 ```text
 React
@@ -103,26 +146,26 @@ API View
   ↓
 Serializer
   ↓
-ARKL Service
+calculator.py
   ↓
-Calculation Engine
+Pure Calculation Services
   ↓
-Model / ORM
+ARKLResult
   ↓
 SQLite
 ```
 
 ---
 
-# 4. Architectural Rules
+# 5. Architectural Rules
 
-Formula ARKL hanya boleh berada di:
+Scientific calculation hanya boleh berada di:
 
 ```text
 arkl/services/
 ```
 
-Target struktur:
+Target:
 
 ```text
 arkl/
@@ -135,13 +178,13 @@ arkl/
     ├── conversion.py
     ├── validation.py
     ├── aggregation.py
-    ├── intake.py
+    ├── exposure_concentration.py
     ├── rq.py
     ├── interpretation.py
     └── calculator.py
 ```
 
-Formula tidak boleh berada di:
+Tidak boleh ada formula di:
 
 ```text
 React
@@ -151,17 +194,9 @@ models.py
 AI / LLM
 ```
 
-Views hanya mengatur HTTP flow.
-
-Serializers hanya menangani representation dan request validation.
-
-Model hanya menangani persistence.
-
 ---
 
-# 5. Deterministic Requirement
-
-Calculation engine wajib deterministic.
+# 6. Deterministic Requirement
 
 ```text
 same inputs
@@ -177,39 +212,34 @@ Dilarang menggunakan:
 
 ```text
 randomness
-LLM output
-generative AI
+LLM-generated numeric values
 hidden defaults
 non-versioned constants
+silent unit conversion
 ```
-
-dalam proses calculation.
 
 ---
 
-# 6. Scientific Separation
+# 7. Scientific Separation
 
-Layer 1 dan Layer 3 menggunakan referensi untuk tujuan yang berbeda.
+## Layer 1
 
-## 6.1 Layer 1 — Environmental / Safety Monitoring
+Tujuan:
 
-Layer 1 digunakan untuk:
+```text
+environmental monitoring
+realtime operational warning
+OLED / LED / buzzer
+environmental status
+```
 
-- realtime H₂S monitoring;
-- OLED;
-- LED;
-- buzzer;
-- status lingkungan;
-- operational warning;
-- informasi efek konsentrasi H₂S.
-
-Referensi dapat mencakup:
+Referensi dapat berupa:
 
 ```text
 NIOSH REL
 OSHA PEL
 NIOSH IDLH
-literatur efek fisiologis H₂S
+acute effect literature
 ```
 
 Contoh:
@@ -218,39 +248,25 @@ Contoh:
 NIOSH IDLH = 100 ppm
 ```
 
-Nilai tersebut **bukan RfC ARKL**.
+Nilai tersebut bukan RfC.
+
+## Layer 3
+
+Digunakan untuk:
+
+```text
+exposure characterization
+non-cancer inhalation risk characterization
+RQ / HQ
+```
+
+Layer 1 threshold tidak digunakan sebagai penyebut RQ.
 
 ---
 
-## 6.2 Layer 3 — ARKL Risk Assessment
+# 8. Environmental Data
 
-Layer 3 menggunakan:
-
-```text
-Concentration
-Exposure Parameters
-Intake
-RfC
-RQ
-```
-
-Occupational exposure limits seperti:
-
-```text
-NIOSH REL
-OSHA PEL
-NIOSH IDLH
-```
-
-tidak digunakan sebagai penyebut RQ.
-
----
-
-# 7. Data Sources
-
-## 7.1 Environmental Data
-
-Sumber:
+Source:
 
 ```text
 Device
@@ -258,7 +274,7 @@ Device
 H2SReading
 ```
 
-Field utama:
+Fields:
 
 ```text
 ppm
@@ -267,15 +283,17 @@ received_at
 simulated
 ```
 
-Raw telemetry dapat diterima dengan frekuensi tinggi.
+Realtime menggunakan latest deterministic reading:
 
-ARKL tidak harus menghitung setiap raw reading sebagai satu hasil risiko.
+```text
+ORDER BY received_at DESC, id DESC
+```
 
 ---
 
-## 7.2 Exposure Data
+# 9. Exposure Data
 
-Sumber:
+Source:
 
 ```text
 Worker
@@ -283,7 +301,7 @@ Worker
 ExposureProfile
 ```
 
-Parameter:
+ExposureProfile dapat tetap menyimpan:
 
 ```text
 body_weight
@@ -293,23 +311,30 @@ exposure_duration
 inhalation_rate
 ```
 
-Nilai parameter berasal dari:
+Namun pada calculation version `1.1.0-MVP`, parameter yang digunakan langsung untuk RQ/HQ adalah:
 
 ```text
-data responden
-atau
-input penelitian
+exposure_time
+exposure_frequency
 ```
 
-Tidak ada default responden yang dibuat oleh developer.
+Parameter berikut tetap disimpan untuk kebutuhan penelitian tetapi tidak masuk primary HQ calculation:
+
+```text
+body_weight
+inhalation_rate
+exposure_duration
+```
+
+`exposure_duration` tetap dapat disimpan sebagai metadata exposure scenario dan digunakan dalam explicit EC equation, tetapi pada satu chronic non-cancer exposure period nilainya saling menghilangkan dengan averaging time.
+
+Tidak ada hidden defaults.
 
 ---
 
-# 8. H₂S Concentration
+# 10. Sensor Concentration Unit
 
-## 8.1 Sensor Unit
-
-Layer 1 menghasilkan:
+Layer 1:
 
 ```text
 ppm
@@ -323,9 +348,9 @@ LOCKED
 
 ---
 
-## 8.2 ARKL Calculation Unit
+# 11. Calculation Concentration Unit
 
-ARKL menggunakan konsentrasi:
+Layer 3:
 
 ```text
 mg/m³
@@ -337,22 +362,14 @@ Status:
 LOCKED
 ```
 
-Alasan utama:
-
-RfC H₂S yang digunakan dalam MVP dinyatakan dalam:
-
-```text
-mg/m³
-```
-
 ---
 
-# 9. H₂S Unit Conversion
+# 12. H₂S Conversion
 
-Faktor konversi MVP:
+Constant:
 
 ```text
-1 ppm H₂S = 1.40 mg/m³
+H2S_PPM_TO_MG_M3 = 1.40
 ```
 
 Formula:
@@ -361,37 +378,16 @@ Formula:
 C_mg_m3 = C_ppm × 1.40
 ```
 
-Constant:
-
-```text
-H2S_PPM_TO_MG_M3 = 1.40
-```
-
-Status:
-
-```text
-LOCKED
-```
-
-Source category:
-
-```text
-CDC / NIOSH
-NIOSH Pocket Guide to Chemical Hazards
-Hydrogen Sulfide
-```
-
-Contoh:
+Example:
 
 ```text
 10 ppm
-↓
-10 × 1.40
-↓
+× 1.40
+=
 14.00 mg/m³
 ```
 
-Implementation target:
+Implementation:
 
 ```text
 arkl/services/conversion.py
@@ -399,44 +395,91 @@ arkl/services/conversion.py
 
 ---
 
-# 10. MVP Intake Equation
+# 13. Exposure Concentration
 
-Formula yang dikunci untuk MVP:
+Primary exposure metric:
 
 ```text
-             C × R × tE × fE × Dt
-Intake = ───────────────────────────
-                  Wb × tavg
+EC
 ```
 
-Parameter:
+Meaning:
 
 ```text
-C     = H₂S concentration
-R     = inhalation rate
-tE    = exposure time
-fE    = exposure frequency
-Dt    = exposure duration
-Wb    = body weight
-tavg  = averaging time
+time-adjusted inhalation exposure concentration
+```
+
+Unit:
+
+```text
+mg/m³
+```
+
+EPA-compatible equation:
+
+```text
+EC = (CA × ET × EF × ED) / AT
+```
+
+Where:
+
+```text
+CA = concentration in air, mg/m³
+ET = exposure time, hour/day
+EF = exposure frequency, day/year
+ED = exposure duration, year
+AT = averaging time, hour
+```
+
+For chronic/subchronic non-cancer exposure:
+
+```text
+AT = ED × 365 × 24
+```
+
+Therefore for a single exposure period:
+
+```text
+EC
+=
+CA × ET × EF × ED
+─────────────────
+ED × 365 × 24
+```
+
+ED cancels:
+
+```text
+EC
+=
+CA × (ET / 24) × (EF / 365)
+```
+
+MVP implementation may therefore use the simplified but equivalent equation:
+
+```text
+EC = CA × (ET / 24) × (EF / 365)
 ```
 
 Status:
 
 ```text
-LOCKED FOR MVP v1
+LOCKED FOR MVP v1.1
 ```
 
 ---
 
-# 11. Parameter Units
-
-## 11.1 Concentration — C
+# 14. Exposure Time — ET
 
 ```text
-Symbol : C
-Unit   : mg/m³
-Source : H2SReading.ppm converted to mg/m³
+Model field : exposure_time
+Unit        : hour/day
+```
+
+Validation:
+
+```text
+0 <= ET <= 24
 ```
 
 Status:
@@ -447,420 +490,288 @@ LOCKED
 
 ---
 
-## 11.2 Inhalation Rate — R
-
-```text
-Model field : inhalation_rate
-Symbol      : R
-Unit        : m³/hour
-```
-
-Status:
-
-```text
-LOCKED FOR MVP
-```
-
-Nilai harus berasal dari:
-
-```text
-ExposureProfile
-```
-
-Tidak ada hidden default.
-
----
-
-## 11.3 Exposure Time — tE
-
-```text
-Model field : exposure_time
-Symbol      : tE
-Meaning     : duration of exposure per working/exposure day
-Unit        : hour/day
-```
-
-Status:
-
-```text
-LOCKED FOR MVP
-```
-
-Domain candidate:
-
-```text
-0 <= tE <= 24
-```
-
-Validation maksimum 24 dapat diterapkan karena unit telah dikunci menjadi hour/day.
-
----
-
-## 11.4 Exposure Frequency — fE
+# 15. Exposure Frequency — EF
 
 ```text
 Model field : exposure_frequency
-Symbol      : fE
-Meaning     : number of exposure days per year
 Unit        : day/year
+```
+
+Validation:
+
+```text
+0 <= EF <= 365
 ```
 
 Status:
 
 ```text
-LOCKED FOR MVP
-```
-
-Domain:
-
-```text
-0 <= fE <= 365
+LOCKED
 ```
 
 ---
 
-## 11.5 Exposure Duration — Dt
+# 16. Exposure Duration — ED
 
 ```text
 Model field : exposure_duration
-Symbol      : Dt
-Meaning     : number of years exposed
 Unit        : year
 ```
 
-Status:
+Exposure duration remains part of the exposure profile.
+
+For one chronic non-cancer period:
 
 ```text
-LOCKED FOR MVP
+AT = ED × 365 × 24
+```
+
+therefore ED cancels from the simplified EC result.
+
+This does not mean exposure duration is scientifically irrelevant in all scenarios.
+
+It remains relevant for:
+
+```text
+exposure scenario classification
+multiple exposure periods
+research metadata
+subchronic/chronic interpretation
+future methodological extensions
 ```
 
 Constraint:
 
 ```text
-Dt >= 0
+ED > 0
 ```
+
+for persisted active exposure scenarios.
 
 ---
 
-## 11.6 Body Weight — Wb
+# 17. Body Weight
 
 ```text
 Model field : body_weight
-Symbol      : Wb
 Unit        : kg
 ```
 
 Status:
 
 ```text
-LOCKED
+RETAINED AS RESEARCH DATA
+NOT USED IN PRIMARY v1.1 RQ FORMULA
 ```
 
-Constraint:
-
-```text
-Wb > 0
-```
-
-Tidak ada default body weight.
+The backend must not delete this parameter merely because version 1.1 does not use it for HQ calculation.
 
 ---
 
-# 12. Averaging Time
-
-Untuk MVP non-carcinogenic calculation:
+# 18. Inhalation Rate
 
 ```text
-tavg = Dt × 365
-```
-
-Unit:
-
-```text
-day
+Model field : inhalation_rate
+Unit        : m³/hour
 ```
 
 Status:
 
 ```text
-LOCKED FOR MVP
+RETAINED AS RESEARCH DATA
+NOT USED IN PRIMARY v1.1 RQ FORMULA
 ```
 
-Dengan demikian:
-
-```text
-tavg_days = exposure_duration_years × 365
-```
-
-Jika:
-
-```text
-Dt = 10 years
-```
-
-maka:
-
-```text
-tavg = 10 × 365
-     = 3650 days
-```
-
-Implementation target:
-
-```text
-calculate_averaging_time()
-```
-
-atau calculation internal yang equivalent.
+It may be used by future dose-oriented research calculations but not by the current EPA-compatible RfC comparison.
 
 ---
 
-# 13. Dimensional Contract
+# 19. Reference Concentration
 
-Input:
-
-```text
-C   = mg/m³
-R   = m³/hour
-tE  = hour/day
-fE  = day/year
-Dt  = year
-Wb  = kg
-tavg = day
-```
-
-Intermediate:
+H₂S inhalation RfC:
 
 ```text
-R × tE
-=
-m³/hour × hour/day
-=
-m³/day
-```
-
-Kemudian:
-
-```text
-C × R × tE
-=
-mg/m³ × m³/day
-=
-mg/day
-```
-
-Formula engine harus menjaga contract unit ini secara eksplisit.
-
-Developer tidak boleh mengganti unit suatu field tanpa:
-
-```text
-updating this specification
-+
-calculation version
-+
-tests
-```
-
----
-
-# 14. Reference Concentration — RfC
-
-MVP menggunakan:
-
-```text
-H₂S RfC = 0.002 mg/m³
+0.002 mg/m³
 ```
 
 Constant:
 
 ```text
-H2S_RFC_MG_M3 = 0.002
+H2S_RFC_MG_M3 = Decimal("0.002")
 ```
 
-Status:
+Purpose:
 
 ```text
-LOCKED FOR MVP v1
+non-carcinogenic inhalation reference concentration
 ```
 
-Primary reference:
-
-```text
-United States Environmental Protection Agency
-Integrated Risk Information System — IRIS
-Hydrogen Sulfide
-```
-
-RfC digunakan sebagai reference concentration untuk inhalation non-carcinogenic risk assessment.
-
-RfC bukan:
+It is not:
 
 ```text
 NIOSH REL
 OSHA PEL
-IDLH
-```
-
----
-
-# 15. Risk Quotient
-
-Formula:
-
-```text
-       Intake
-RQ = ─────────
-        RfC
-```
-
-atau:
-
-```text
-RQ = Intake / RfC
+NIOSH IDLH
+RfD
 ```
 
 Status:
 
 ```text
-LOCKED
+LOCKED FOR MVP v1.1
 ```
 
-Implementation target:
+---
+
+# 20. Risk Quotient / Hazard Quotient
+
+Primary formula:
+
+```text
+        EC
+RQ = ───────
+       RfC
+```
+
+Equivalent terminology:
+
+```text
+Hazard Quotient / HQ
+```
+
+Within this project the API may continue using:
+
+```text
+rq
+```
+
+for compatibility with the ARKL research terminology.
+
+Scientific documentation must state:
+
+```text
+rq is a concentration-based inhalation hazard quotient
+```
+
+Units:
+
+```text
+EC  = mg/m³
+RfC = mg/m³
+RQ  = dimensionless
+```
+
+Implementation:
 
 ```text
 arkl/services/rq.py
 ```
 
-Function target:
-
-```python
-calculate_rq()
-```
-
-Requirement:
-
-```text
-RfC > 0
-```
-
-dan unit Intake harus compatible dengan reference calculation contract.
-
 ---
 
-# 16. RQ Interpretation
+# 21. Interpretation
 
-MVP menggunakan dua machine-readable interpretation states.
+If:
 
-## RQ <= 1
+```text
+RQ <= 1
+```
+
+return:
 
 ```text
 WITHIN_REFERENCE_LEVEL
 ```
 
-Meaning:
+If:
 
 ```text
-Calculated non-carcinogenic risk does not exceed
-the reference level for the evaluated exposure scenario.
+RQ > 1
 ```
 
----
-
-## RQ > 1
+return:
 
 ```text
 ABOVE_REFERENCE_LEVEL
 ```
 
-Meaning:
+Meaning of `RQ > 1`:
 
 ```text
-Calculated exposure scenario exceeds the reference level
-and requires further risk evaluation and/or risk management.
+the evaluated exposure concentration exceeds
+the selected non-cancer reference concentration
 ```
 
-Status:
+It does not mean:
 
 ```text
-LOCKED FOR MVP
+probability > 100%
+certain illness
+certain ISPA
+severity multiplier
 ```
 
 ---
 
-# 17. Forbidden Risk Interpretation
+# 22. Forbidden Interpretations
 
-RQ bukan probabilitas penyakit.
-
-Dilarang mengatakan:
+Forbidden:
 
 ```text
-RQ = 1.5
-→ kemungkinan sakit 50%
+RQ = 2
+→ disease probability is 200%
 ```
 
-Dilarang mengatakan:
+Forbidden:
 
 ```text
 RQ > 1
-→ pasti mengalami ISPA
+→ worker has ISPA
 ```
 
-Dilarang mengatakan:
+Forbidden:
 
 ```text
 RQ < 1
-→ pasti aman dari seluruh efek kesehatan
+→ completely safe
 ```
 
-Correct concept:
+Correct:
 
 ```text
-RQ = risk characterization relative to reference level
-```
-
-Bukan:
-
-```text
-clinical diagnosis
+RQ compares the evaluated exposure concentration
+against a reference concentration.
 ```
 
 ---
 
-# 18. Realtime ARKL
+# 23. Realtime ARKL
 
-MVP menyediakan realtime risk calculation.
-
-## Concentration Source
-
-Realtime calculation menggunakan:
+Realtime source:
 
 ```text
-latest valid H₂S reading
+latest valid H2SReading
 ```
 
 Pipeline:
 
 ```text
-Latest valid H2SReading.ppm
-        ↓
-ppm_to_mg_m3()
-        ↓
-ExposureProfile
-        ↓
-calculate_intake()
-        ↓
+latest ppm
+   ↓
+ppm → mg/m³
+   ↓
+ET + EF
+   ↓
+calculate_exposure_concentration()
+   ↓
 calculate_rq()
-        ↓
+   ↓
 interpret_rq()
+   ↓
+ARKLResult
 ```
 
-Status:
-
-```text
-LOCKED FOR MVP
-```
-
-Target service:
+Target:
 
 ```python
 calculate_realtime_risk()
@@ -868,70 +779,34 @@ calculate_realtime_risk()
 
 ---
 
-# 19. Definition of Valid Reading
+# 24. Historical ARKL
 
-Untuk MVP, valid reading minimal memenuhi:
+Historical source:
 
 ```text
-reading exists
-ppm >= 0
-device is active
-payload has passed MQTT ingestion validation
+valid readings inside explicit time range
 ```
 
-`simulated=true` tidak membuat reading invalid.
-
-Namun provenance harus tetap dibawa ke hasil ARKL.
-
----
-
-# 20. Historical ARKL
-
-MVP menyediakan historical risk scenario berdasarkan data sensor pada periode tertentu.
-
-Concentration aggregation:
+Aggregation:
 
 ```text
-arithmetic mean
+arithmetic mean ppm
 ```
 
-Formula:
+Then:
 
 ```text
-                    Σ C
-C_historical = ─────────────
-                    n
-```
-
-dengan:
-
-```text
-C = valid reading concentration
-n = number of readings
-```
-
-Status:
-
-```text
-LOCKED FOR MVP
-```
-
-Pipeline:
-
-```text
-Selected historical readings
-        ↓
-Arithmetic mean ppm
-        ↓
-ppm → mg/m³
-        ↓
-ExposureProfile
-        ↓
-Intake
-        ↓
+mean ppm
+   ↓
+mg/m³
+   ↓
+Exposure Concentration
+   ↓
 RQ
-        ↓
+   ↓
 Interpretation
+   ↓
+ARKLResult
 ```
 
 Target:
@@ -942,31 +817,9 @@ calculate_historical_risk()
 
 ---
 
-# 21. Terminology: Historical vs Lifetime
+# 25. Historical Time Range
 
-Backend MVP menggunakan istilah:
-
-```text
-historical
-```
-
-untuk kalkulasi berdasarkan kumpulan telemetry aktual pada interval tertentu.
-
-Istilah:
-
-```text
-lifetime
-```
-
-tidak boleh digunakan untuk menyatakan bahwa sistem memiliki pemantauan sepanjang hidup seseorang jika data tersebut tidak tersedia.
-
-Dalam metodologi penelitian, lifetime scenario dapat dikembangkan kemudian sebagai skenario terpisah.
-
----
-
-# 22. Historical Time Range
-
-Historical calculation harus menerima batas waktu eksplisit:
+Required:
 
 ```text
 start_time
@@ -980,90 +833,83 @@ received_at >= start_time
 received_at <= end_time
 ```
 
-Jika tidak ada reading dalam range:
+Empty result:
 
 ```text
-calculation must fail explicitly
+raise explicit error
 ```
 
-Engine tidak boleh:
-
-```text
-return 0 concentration
-```
-
-secara diam-diam.
+Do not silently return zero.
 
 ---
 
-# 23. Raw Telemetry Frequency
+# 26. Historical Aggregation
 
-MQTT dapat menghasilkan sekitar:
-
-```text
-1 reading / second
-```
-
-ARKL historical tidak menghitung seluruh raw readings sebagai hasil risiko terpisah.
-
-Raw readings hanya menjadi dataset untuk menghasilkan:
+Formula:
 
 ```text
-mean concentration
+mean = Σ concentration / n
 ```
 
-pada range yang diminta.
+Empty collection:
 
-Optimisasi/downsampling belum diperlukan untuk MVP selama SQLite masih memenuhi kebutuhan PoC.
+```text
+invalid
+```
+
+Implementation:
+
+```text
+aggregation.py
+```
 
 ---
 
-# 24. Simulated Data Provenance
+# 27. Valid Reading
 
-Current Wokwi data menggunakan:
+Valid minimum:
 
 ```text
-simulated = true
+reading exists
+device is active
+ppm >= 0
+payload passed ingestion validation
 ```
 
-Data simulated tetap boleh digunakan untuk:
+`simulated=true` remains valid for:
 
 ```text
 development
-integration testing
-MVP demonstration
-calculation verification
+PoC
+integration
+scientific pipeline testing
 ```
 
-Hasil ARKL harus menyimpan provenance.
+Provenance must remain explicit.
 
-Field:
+---
+
+# 28. Simulated Provenance
+
+Reading:
+
+```text
+simulated = true/false
+```
+
+ARKLResult:
 
 ```text
 source_simulated
 ```
 
-Status:
-
-```text
-LOCKED
-```
-
-Jika source reading simulated:
-
-```text
-source_simulated = true
-```
-
-Sistem tidak boleh menyamarkan data simulasi sebagai data sensor fisik.
+For any result containing simulated telemetry, provenance must not be silently represented as physical sensor data.
 
 ---
 
-# 25. ARKLResult
+# 29. ARKLResult v1.1
 
-`ARKLResult` digunakan sebagai immutable calculation snapshot secara konseptual.
-
-Minimum fields:
+Recommended fields:
 
 ```text
 ARKLResult
@@ -1073,318 +919,194 @@ ARKLResult
 ├── calculation_type
 ├── concentration_ppm
 ├── concentration_mg_m3
-├── body_weight
+├── exposure_concentration_mg_m3
 ├── exposure_time
 ├── exposure_frequency
-├── exposure_duration
-├── inhalation_rate
-├── averaging_time
-├── intake
-├── rfc
 ├── rq
+├── rfc
 ├── interpretation
 ├── calculation_version
 ├── source_simulated
+├── period_start
+├── period_end
+├── reading_count
 └── created_at
 ```
 
-Untuk historical calculation, hubungan ke single reading dapat:
+Legacy/research snapshot fields may temporarily remain:
 
 ```text
-nullable
-```
-
-karena result berasal dari aggregate readings.
-
-Jika diperlukan, historical result menyimpan:
-
-```text
-period_start
-period_end
-reading_count
-```
-
----
-
-# 26. Snapshot Requirement
-
-ARKLResult harus menyimpan parameter calculation sebagai snapshot.
-
-Contoh:
-
-```text
-Worker PML-001
-body_weight = 55 kg
-```
-
-ARKL result dibuat.
-
-Kemudian profil diubah menjadi:
-
-```text
-body_weight = 58 kg
-```
-
-Historical ARKL result lama harus tetap menyimpan:
-
-```text
-55 kg
-```
-
-agar calculation lama tetap reproducible.
-
----
-
-# 27. Calculation Type
-
-MVP minimum:
-
-```text
-REALTIME
-HISTORICAL
-```
-
-Recommended enum:
-
-```text
-REALTIME
-HISTORICAL
-```
-
-Jangan menambahkan tipe calculation lain sampai diperlukan.
-
----
-
-# 28. Calculation Version
-
-Constant:
-
-```text
-ARKL_CALCULATION_VERSION = "1.0.0-MVP"
-```
-
-Setiap ARKLResult wajib menyimpan:
-
-```text
-calculation_version
-```
-
-Tujuan:
-
-- auditability;
-- reproducibility;
-- methodology change tracking;
-- scientific traceability.
-
-Jika rumus atau konstanta berubah secara material:
-
-```text
-calculation version must change
-```
-
----
-
-# 29. Constants
-
-Target `constants.py`:
-
-```text
-H2S_PPM_TO_MG_M3 = 1.40
-
-H2S_RFC_MG_M3 = 0.002
-
-DAYS_PER_YEAR = 365
-
-ARKL_CALCULATION_VERSION = "1.0.0-MVP"
-```
-
-Gunakan numeric representation yang deterministic.
-
-Recommended:
-
-```text
-Decimal
-```
-
-untuk calculation engine.
-
----
-
-# 30. Numeric Strategy
-
-ARKL engine menggunakan:
-
-```text
-Decimal
-```
-
-untuk:
-
-```text
-unit conversion
-averaging time
+body_weight
+inhalation_rate
+exposure_duration
 intake
-RfC
-RQ
+averaging_time
 ```
 
-Tujuannya menghindari uncontrolled binary floating-point variation.
+but must not be presented as inputs used to calculate v1.1 RQ unless explicitly documented.
 
-Input ORM FloatField dapat dikonversi menggunakan:
+---
+
+# 30. Legacy Intake Field
+
+`intake.py` from v1.0 is no longer part of primary RQ pipeline.
+
+Status:
+
+```text
+LEGACY / RESEARCH-ONLY
+```
+
+Do not use:
+
+```text
+Intake / RfC
+```
+
+for H₂S v1.1.
+
+The module may temporarily remain to:
+
+```text
+preserve historical tests
+support research comparison
+avoid destructive refactoring during migration
+```
+
+After version 1.1 migration is stable, evaluate whether the module should be retained or removed.
+
+---
+
+# 31. Calculation Version
+
+```text
+ARKL_CALCULATION_VERSION = "1.1.0-MVP"
+```
+
+Every new result must persist this version.
+
+Existing `1.0.0-MVP` results must not be silently relabeled.
+
+They remain historically identifiable as:
+
+```text
+legacy calculation methodology
+```
+
+---
+
+# 32. Constants
+
+```text
+H2S_PPM_TO_MG_M3 = Decimal("1.40")
+H2S_RFC_MG_M3 = Decimal("0.002")
+
+HOURS_PER_DAY = Decimal("24")
+DAYS_PER_YEAR = Decimal("365")
+
+ARKL_CALCULATION_VERSION = "1.1.0-MVP"
+```
+
+---
+
+# 33. Numeric Strategy
+
+Use:
+
+```text
+Decimal
+```
+
+Convert ORM float using:
 
 ```python
 Decimal(str(value))
 ```
 
-Bukan:
+Never:
 
 ```python
 Decimal(value)
 ```
 
-untuk nilai float.
+for Python floats.
 
 ---
 
-# 31. Rounding Strategy
+# 34. Rounding
 
 Rule:
 
 ```text
-DO NOT ROUND INTERMEDIATE VALUES
+NO INTERMEDIATE ROUNDING
 ```
 
 Pipeline:
 
 ```text
-raw input
-   ↓
-Decimal conversion
-   ↓
-full precision calculation
-   ↓
-stored result
-   ↓
+input
+ ↓
+Decimal
+ ↓
+full precision
+ ↓
+persist
+ ↓
 presentation rounding
 ```
 
-API/UI boleh membatasi decimal display.
-
-Calculation engine tidak boleh melakukan presentation rounding.
-
 ---
 
-# 32. Basic Validation Rules
+# 35. Exposure Concentration Contract
 
-MVP validation:
-
-```text
-concentration_ppm >= 0
-
-body_weight > 0
-
-0 <= exposure_time <= 24
-
-0 <= exposure_frequency <= 365
-
-exposure_duration >= 0
-
-inhalation_rate >= 0
-
-RfC > 0
-```
-
-Untuk calculation yang membutuhkan averaging time:
-
-```text
-exposure_duration > 0
-```
-
-karena:
-
-```text
-tavg = Dt × 365
-```
-
-dan denominator tidak boleh nol.
-
----
-
-# 33. Missing Inputs
-
-Calculation engine tidak boleh menggunakan implicit defaults.
-
-Jika required parameter tidak tersedia:
-
-```text
-raise explicit domain validation error
-```
-
-Contoh:
-
-```text
-ARKLValidationError
-```
-
-Tidak boleh:
-
-```text
-None → 0
-missing body_weight → assumed 55 kg
-missing R → hardcoded default
-```
-
----
-
-# 34. Intake Calculation Contract
-
-Target function:
+Target:
 
 ```python
-calculate_intake(
+calculate_exposure_concentration(
     *,
     concentration_mg_m3,
-    inhalation_rate_m3_hour,
     exposure_time_hour_day,
     exposure_frequency_day_year,
-    exposure_duration_year,
-    body_weight_kg,
 )
 ```
 
-Function menghitung averaging time:
+Formula:
 
 ```text
-tavg = exposure_duration_year × 365
+EC =
+C
+× ET / 24
+× EF / 365
 ```
 
-kemudian:
+Validation:
 
 ```text
-             C × R × tE × fE × Dt
-Intake = ───────────────────────────
-                  Wb × tavg
+C >= 0
+0 <= ET <= 24
+0 <= EF <= 365
 ```
 
-Function harus:
+Function must be:
 
-- pure;
-- deterministic;
-- tidak membaca database;
-- tidak membaca HTTP request;
-- tidak memanggil AI;
-- tidak melakukan logging data pribadi yang tidak diperlukan.
+```text
+pure
+deterministic
+database-independent
+HTTP-independent
+AI-independent
+```
 
 ---
 
-# 35. RQ Calculation Contract
+# 36. RQ Contract
 
 Target:
 
 ```python
 calculate_rq(
     *,
-    intake,
+    exposure_concentration_mg_m3,
     rfc=H2S_RFC_MG_M3,
 )
 ```
@@ -1392,154 +1114,105 @@ calculate_rq(
 Formula:
 
 ```text
-RQ = Intake / RfC
+RQ = EC / RfC
 ```
 
 Validation:
 
 ```text
-intake >= 0
-rfc > 0
+EC >= 0
+RfC > 0
 ```
 
-Function harus pure dan deterministic.
+Output:
+
+```text
+Decimal
+dimensionless
+```
 
 ---
 
-# 36. Interpretation Contract
-
-Target:
+# 37. Interpretation Contract
 
 ```python
 interpret_rq(rq)
 ```
 
-Output:
-
-```text
-WITHIN_REFERENCE_LEVEL
-```
-
-jika:
+Rules:
 
 ```text
 RQ <= 1
-```
+→ WITHIN_REFERENCE_LEVEL
 
-Output:
-
-```text
-ABOVE_REFERENCE_LEVEL
-```
-
-jika:
-
-```text
 RQ > 1
-```
-
-No medical diagnosis.
-
----
-
-# 37. Aggregation Contract
-
-Target:
-
-```python
-calculate_mean_concentration(readings)
-```
-
-Input:
-
-```text
-collection of valid H₂S concentrations
-```
-
-Output:
-
-```text
-arithmetic mean concentration
-```
-
-Empty collection:
-
-```text
-must raise explicit error
-```
-
-Do not silently return:
-
-```text
-0
+→ ABOVE_REFERENCE_LEVEL
 ```
 
 ---
 
 # 38. Realtime Calculator Contract
 
+Concept:
+
+```text
+worker
++
+device
+ ↓
+ExposureProfile
++
+latest deterministic H2SReading
+ ↓
+validate
+ ↓
+ppm → mg/m³
+ ↓
+EC
+ ↓
+RQ
+ ↓
+interpretation
+ ↓
+persist
+```
+
 Target:
 
 ```python
 calculate_realtime_risk(
     *,
-    reading,
-    exposure_profile,
+    worker,
+    device,
 )
 ```
-
-Conceptual orchestration:
-
-```text
-validate reading
-validate exposure profile
-        ↓
-ppm → mg/m³
-        ↓
-calculate intake
-        ↓
-calculate RQ
-        ↓
-interpret RQ
-        ↓
-persist ARKLResult
-```
-
-Calculation service may use persistence orchestration, but core mathematical functions remain pure.
 
 ---
 
 # 39. Historical Calculator Contract
 
-Target:
-
-```python
-calculate_historical_risk(
-    *,
-    worker,
-    readings,
-    exposure_profile,
-    period_start,
-    period_end,
-)
-```
-
-Conceptual flow:
+Concept:
 
 ```text
-validate readings
-      ↓
+worker
++
+device
++
+period
+ ↓
+valid readings
+ ↓
 mean ppm
-      ↓
-ppm → mg/m³
-      ↓
-calculate intake
-      ↓
-calculate RQ
-      ↓
-interpret RQ
-      ↓
-persist ARKLResult
+ ↓
+mg/m³
+ ↓
+EC
+ ↓
+RQ
+ ↓
+interpretation
+ ↓
+persist
 ```
 
 Store:
@@ -1550,63 +1223,90 @@ period_end
 reading_count
 ```
 
-where supported by the model.
-
 ---
 
-# 40. AI Boundary
+# 40. API Contract
 
-Optional AI functionality may use deterministic ARKL result for:
+Endpoints:
 
 ```text
-explanation
-summary
-risk communication
-research narrative
-report generation
+POST /api/v1/arkl/realtime/
+POST /api/v1/arkl/historical/
+
+GET /api/v1/arkl/results/
+GET /api/v1/arkl/results/{id}/
 ```
 
-AI may not calculate:
+Realtime request:
+
+```json
+{
+  "worker": 2,
+  "device": 2
+}
+```
+
+Historical:
+
+```json
+{
+  "worker": 2,
+  "device": 2,
+  "start_time": "2026-08-20T00:00:00+07:00",
+  "end_time": "2026-08-20T08:00:00+07:00"
+}
+```
+
+React never sends:
 
 ```text
-Intake
+EC
 RfC
 RQ
+interpretation
 ```
 
-Correct:
+Backend calculates them.
+
+---
+
+# 41. AI Boundary
+
+Allowed:
 
 ```text
-Deterministic Engine
-        ↓
 ARKLResult
-        ↓
-Optional AI Explanation
+   ↓
+AI
+   ↓
+explanation
+summary
+research narrative
+risk communication
 ```
 
-Incorrect:
+Forbidden:
 
 ```text
-Telemetry
-   ↓
-LLM
-   ↓
-RQ
+AI → EC
+AI → RfC
+AI → RQ
+AI → scientific threshold
 ```
 
 ---
 
-# 41. Observability
+# 42. Observability
 
-Existing core observability must be reused.
+Reuse existing infrastructure.
 
 HTTP:
 
 ```text
-existing global middleware
+global middleware
 ```
 
-ARKL service/application logs:
+ARKL logger:
 
 ```text
 smart_h2s.arkl
@@ -1615,144 +1315,111 @@ smart_h2s.arkl
 Do not rebuild:
 
 ```text
-Request ID middleware
+Request ID
 request logging
 error logging
 security audit
-performance middleware
+performance monitoring
 redaction
-rotating log infrastructure
+rotating logs
 ```
-
-Sensitive worker data must not be unnecessarily emitted to log files.
 
 ---
 
-# 42. REST API Target
+# 43. Known-Case Tests v1.1
 
-After calculation engine is tested, MVP may expose:
+Mandatory:
 
 ```text
-POST /api/v1/arkl/realtime/
-POST /api/v1/arkl/historical/
+conversion
+├── 0 ppm
+├── 10 ppm
+├── fractional
+└── invalid
 
-GET  /api/v1/arkl/results/
-GET  /api/v1/arkl/results/{id}/
+exposure concentration
+├── zero concentration
+├── ET = 24, EF = 365
+├── partial daily exposure
+├── partial yearly exposure
+├── invalid ET
+└── invalid EF
+
+RQ
+├── EC = 0
+├── RQ < 1
+├── RQ = 1
+├── RQ > 1
+└── invalid RfC
+
+interpretation
+├── below threshold
+├── exact threshold
+└── above threshold
+
+historical
+├── one reading
+├── multiple readings
+└── empty period
+
+calculator
+├── latest reading
+├── realtime persistence
+├── historical persistence
+├── inactive device
+├── missing profile
+└── invalid period
+
+API
+├── realtime
+├── historical
+├── result list
+├── detail
+└── invalid request
 ```
-
-Optional API naming can be refined during REST implementation.
-
-Views must not contain calculation formula.
 
 ---
 
-# 43. Realtime Request Concept
+# 44. Migration Rules
 
-Example conceptual request:
+Changing from `1.0.0-MVP` to `1.1.0-MVP` is a material methodology change.
 
-```json
-{
-  "worker": 1,
-  "device": 1
-}
-```
-
-Backend resolves:
+Required:
 
 ```text
-worker
-↓
-ExposureProfile
-
-device
-↓
-latest valid H2SReading
+update specification
+update calculation version
+update constants
+update services
+update tests
+update persistence schema if needed
+update OpenAPI
+repeat E2E
 ```
 
-Then deterministic calculation runs.
-
-Do not require React to send calculated Intake/RQ.
-
----
-
-# 44. Historical Request Concept
-
-Example:
-
-```json
-{
-  "worker": 1,
-  "device": 1,
-  "start_time": "2026-08-20T00:00:00+07:00",
-  "end_time": "2026-08-20T08:00:00+07:00"
-}
-```
-
-Backend:
+Existing v1.0 results:
 
 ```text
-query readings
-↓
-mean concentration
-↓
-ARKL calculation
-↓
-ARKLResult
+must remain identifiable
+must not be overwritten
+must not be silently recalculated
 ```
 
 ---
 
-# 45. Known-Case Tests
+# 45. Full Regression
 
-Mandatory tests:
+Required:
 
-```text
-ppm conversion:
-0 ppm
-10 ppm
-fractional ppm
-negative ppm
-non-numeric input
-
-validation:
-zero/negative body weight
-exposure_time > 24
-exposure_frequency > 365
-zero exposure duration where calculation requires tavg
-invalid inhalation rate
-
-intake:
-known manually calculated case
-zero concentration
-deterministic repeated calculation
-
-RQ:
-RQ < 1
-RQ = 1
-RQ > 1
-zero intake
-invalid RfC
-
-interpretation:
-exact threshold behavior
-
-aggregation:
-single reading
-multiple readings
-empty readings
-
-persistence:
-snapshot values
-calculation version
-simulated provenance
-historical metadata
+```bash
+ruff check .
+ruff format --check .
+pytest -v
+python manage.py check
+pip-audit
 ```
 
----
-
-# 46. Full Regression Requirement
-
-Phase 4 changes must not break:
+Must not break:
 
 ```text
 MQTT ingestion
@@ -1760,48 +1427,32 @@ Device API
 Reading API
 Worker API
 ExposureProfile API
-core observability
+observability
 ```
-
-Required quality gate:
-
-```text
-ruff check
-pytest
-python manage.py check
-```
-
-All existing tests must remain green.
 
 ---
 
-# 47. Source Hierarchy
+# 46. Scientific Source Hierarchy
 
-Priority:
-
-## Tier 1
+Tier 1:
 
 ```text
+US EPA inhalation risk guidance
 US EPA IRIS
 CDC / NIOSH
-official environmental health risk assessment guidance
 ```
 
-## Tier 2
+Tier 2:
 
 ```text
-peer-reviewed scientific journals
+peer-reviewed environmental health literature
 ```
 
-## Tier 3
-
-Other references may support documentation but should not silently override authoritative constants.
+Layer 1 occupational limits must not silently replace Layer 3 RfC.
 
 ---
 
-# 48. MVP Scientific Lock
-
-Current locked configuration:
+# 47. Scientific Lock v1.1
 
 ```text
 Pollutant
@@ -1812,11 +1463,15 @@ Exposure route
 Inhalation
 LOCKED
 
+Risk type
+Non-carcinogenic
+LOCKED
+
 Sensor unit
 ppm
 LOCKED
 
-Calculation concentration unit
+Calculation unit
 mg/m³
 LOCKED
 
@@ -1824,303 +1479,207 @@ Conversion
 1 ppm = 1.40 mg/m³
 LOCKED
 
+Exposure metric
+Exposure Concentration
+LOCKED
+
+EC formula
+C × (ET / 24) × (EF / 365)
+LOCKED FOR MVP
+
 RfC
 0.002 mg/m³
 LOCKED FOR MVP
 
-Body weight
-kg
+Risk Quotient
+EC / RfC
 LOCKED
 
-Inhalation rate
-m³/hour
-LOCKED FOR MVP
-
-Exposure time
-hour/day
-LOCKED FOR MVP
-
-Exposure frequency
-day/year
-LOCKED FOR MVP
-
-Exposure duration
-year
-LOCKED FOR MVP
-
-Averaging time
-Dt × 365 days
-LOCKED FOR MVP
-
-Intake equation
-(C × R × tE × fE × Dt) / (Wb × tavg)
-LOCKED FOR MVP
-
-RQ
-Intake / RfC
+RQ unit
+dimensionless
 LOCKED
-
-Realtime concentration
-latest valid reading
-LOCKED FOR MVP
-
-Historical concentration
-arithmetic mean of selected readings
-LOCKED FOR MVP
 
 RQ <= 1
 WITHIN_REFERENCE_LEVEL
 
 RQ > 1
 ABOVE_REFERENCE_LEVEL
+
+Realtime concentration
+latest deterministic valid reading
+LOCKED
+
+Historical concentration
+arithmetic mean
+LOCKED
+
+Calculation version
+1.1.0-MVP
+LOCKED
 ```
 
 ---
 
-# 49. MVP Assumptions
+# 48. Deprecated v1.0 Primary Formula
 
-Beberapa keputusan merupakan **MVP methodological assumptions**, bukan klaim bahwa tidak ada metodologi alternatif.
-
-MVP assumption list:
+Deprecated:
 
 ```text
-R uses m³/hour
-tE uses hour/day
-fE uses day/year
-Dt uses year
-non-carcinogenic tavg = Dt × 365 days
-realtime uses latest valid concentration
-historical uses arithmetic mean concentration
+Intake / RfC
 ```
 
-Jika penelitian kemudian menetapkan metode berbeda:
+Reason:
 
 ```text
-do not silently modify existing engine
+Intake = mg/kg-day
+RfC    = mg/m³
 ```
 
-Buat:
+The two quantities are not dimensionally equivalent.
 
-```text
-new calculation version
-+
-updated specification
-+
-new known-case tests
-```
+This formula must not be used by the v1.1 production/MVP calculator.
 
 ---
 
-# 50. Change Control
+# 49. Phase 4 Refactor Checklist
 
-Perubahan material pada:
-
-```text
-formula
-unit
-RfC
-conversion constant
-averaging time
-aggregation method
-interpretation threshold
-```
-
-wajib memperbarui:
+Scientific:
 
 ```text
-ARKL_CALCULATION_SPEC.md
-calculation version
-constants
-unit tests
-API documentation if affected
-research documentation
+[x] dimensional mismatch identified
+[x] EPA concentration methodology selected
+[x] RfC retained
+[x] EC contract defined
+[x] RQ contract redefined
+[x] version bumped to 1.1.0-MVP
 ```
 
----
-
-# 51. Implementation Status
-
-Dengan scientific lock ini:
-
-```text
-constants.py                      ALLOWED
-conversion.py                     ALLOWED
-validation.py                     ALLOWED
-aggregation.py                    ALLOWED
-
-intake.py                         ALLOWED
-rq.py                             ALLOWED
-interpretation.py                 ALLOWED
-calculator.py                     ALLOWED
-
-ARKLResult                        ALLOWED
-Realtime ARKL API                 ALLOWED
-Historical ARKL API               ALLOWED
-
-Known-case tests                  REQUIRED
-Full regression tests             REQUIRED
-```
-
-Scientific implementation gate untuk MVP:
-
-```text
-OPEN
-```
-
----
-
-# 52. Phase 4 Development Checklist
-
-## Scientific Specification
-
-```text
-[x] H₂S defined
-[x] Inhalation pathway defined
-[x] Concentration units defined
-[x] ppm conversion locked
-[x] RfC locked for MVP
-[x] Exposure parameter units locked
-[x] Averaging time locked
-[x] Intake formula locked
-[x] RQ formula locked
-[x] Interpretation locked
-[x] Realtime concentration strategy locked
-[x] Historical aggregation strategy locked
-```
-
-## Core Engine
+Code:
 
 ```text
 [ ] constants.py
-[ ] conversion.py
+[ ] exposure_concentration.py
 [ ] validation.py
-[ ] aggregation.py
-[ ] intake.py
 [ ] rq.py
-[ ] interpretation.py
 [ ] calculator.py
+[ ] ARKLResult model
+[ ] migration if required
 ```
 
-## Persistence
+Tests:
 
 ```text
-[ ] ARKLResult finalized
-[ ] Calculation type
-[ ] Calculation version
-[ ] Source simulated provenance
-[ ] Snapshot parameters
-[ ] Historical period metadata
+[ ] exposure concentration tests
+[ ] RQ tests refactored
+[ ] calculator tests refactored
+[ ] model snapshot tests updated
+[ ] API tests updated
+[ ] full regression
 ```
 
-## API
+E2E:
 
 ```text
-[ ] Realtime calculation endpoint
-[ ] Historical calculation endpoint
-[ ] Result list endpoint
-[ ] Result detail endpoint
-[ ] OpenAPI documentation
-```
-
-## Testing
-
-```text
-[ ] Unit conversion tests
-[ ] Validation tests
-[ ] Known intake calculation
-[ ] Known RQ calculation
-[ ] RQ interpretation tests
-[ ] Aggregation tests
-[ ] Realtime calculator tests
-[ ] Historical calculator tests
-[ ] Persistence tests
-[ ] Invalid API input tests
-[ ] Full regression suite
+[ ] Wokwi → MQTT
+[ ] MQTT → H2SReading
+[ ] H2SReading → realtime ARKL
+[ ] EC persisted
+[ ] RQ persisted
+[ ] historical E2E
+[ ] OpenAPI verified
 ```
 
 ---
 
-# 53. Definition of Done — Phase 4 MVP
+# 50. Definition of Done
 
-Phase 4 dianggap selesai ketika:
+Phase 4 v1.1 is complete only when:
 
 ```text
-[ ] calculate_intake() tersedia dan tested
-[ ] calculate_rq() tersedia dan tested
-[ ] interpret_rq() tersedia dan tested
-[ ] calculate_realtime_risk() tersedia
-[ ] calculate_historical_risk() tersedia
+[ ] calculate_exposure_concentration() exists
+[ ] calculate_rq() uses EC
+[ ] RQ is dimensionless
+[ ] calculator no longer uses Intake / RfC
+[ ] calculation version = 1.1.0-MVP
 
-[ ] ppm dikonversi secara deterministic
-[ ] averaging time dihitung secara deterministic
-[ ] historical mean dihitung secara deterministic
+[ ] realtime calculation works
+[ ] historical calculation works
+[ ] ARKLResult stores reproducible snapshot
 
-[ ] ARKLResult menyimpan calculation snapshot
-[ ] calculation version tersimpan
-[ ] simulated provenance tersimpan
+[ ] OpenAPI works
+[ ] all ARKL tests pass
+[ ] full backend regression passes
+[ ] E2E passes
 
-[ ] realtime endpoint bekerja
-[ ] historical endpoint bekerja
+[ ] no formula in Views
+[ ] no formula in Models
+[ ] no formula in React
+[ ] AI does not calculate risk
 
-[ ] invalid input menghasilkan 4xx yang jelas
-[ ] tidak ada rumus ARKL di View
-[ ] tidak ada rumus ARKL di Model
-[ ] tidak ada rumus ARKL di React
-[ ] AI tidak menghitung Intake/RQ
+=============================================================================================================================================================
+done
 
-[ ] Ruff clean
-[ ] Django check clean
-[ ] seluruh test suite pass
+constants.py                       DONE
+conversion.py                      DONE
+validation.py                      DONE
+aggregation.py                     DONE
+exposure_concentration.py          DONE
+rq.py                              DONE
+interpretation.py                  DONE
+calculator.py                      DONE
+
+ARKLResult                         DONE
+Realtime ARKL API                  DONE
+Historical ARKL API                DONE
+OpenAPI                            DONE
+
+Known-case tests                   PASSED
+Full regression                    PASSED
 ```
 
 ---
 
-# 54. Next Development Step
+# 51. Next Development Step
 
-Scientific gate MVP telah terbuka.
-
-Urutan implementasi:
+Implementation order:
 
 ```text
-1. constants.py
+1. Update constants.py
        ↓
-2. conversion.py
+2. Add exposure_concentration.py
        ↓
-3. validation.py
+3. Refactor validation.py
        ↓
-4. aggregation.py
+4. Refactor rq.py
        ↓
-5. intake.py
+5. Refactor calculator.py
        ↓
-6. rq.py
+6. Refactor ARKLResult
        ↓
-7. interpretation.py
+7. Create migration if schema changes
        ↓
-8. known-case unit tests
+8. Refactor tests
        ↓
-9. ARKLResult
+9. Run ARKL regression
        ↓
-10. calculator.py
+10. Run full regression
        ↓
-11. realtime calculation
+11. Repeat realtime E2E
        ↓
-12. historical calculation
+12. Historical E2E
        ↓
-13. REST API
-       ↓
-14. OpenAPI
-       ↓
-15. full regression
+13. Lock Phase 4
 ```
 
 ---
 
-# 55. Core Principle
+# 52. Core Principle
 
 ```text
 THE MVP MAY EVOLVE,
 BUT IT MUST NEVER HIDE ITS ASSUMPTIONS.
 
+EXPOSURE METRICS MATCH TOXICITY VALUES.
 FORMULAS ARE VERSIONED.
 CONSTANTS ARE SOURCED.
 UNITS ARE EXPLICIT.
@@ -2130,5 +1689,28 @@ AI DOES NOT DEFINE THE RISK.
 
 ```
 
-Perubahan terbesarnya dibanding versi sebelumnya adalah statusnya sekarang sudah **`MVP SCIENTIFIC LOCK`**, jadi item yang sebelumnya `NOT LOCKED` untuk `R`, `tE`, `fE`, `Dt`, `tavg`, formula Intake, realtime, dan historical sudah memiliki kontrak MVP yang eksplisit. Artinya kita sekarang **boleh lanjut implementasi `intake.py`, `rq.py`, `aggregation.py`, `calculator.py`, serta ARKL API** tanpa lagi memakai placeholder. 
+### Yang berubah secara teknis
+
+Perubahan terpenting dari spesifikasi lama adalah:
+
+```text
+v1.0
+ppm
+→ mg/m³
+→ Intake (mg/kg-day)
+→ / RfC (mg/m³)
+→ RQ ❌
 ```
+
+menjadi:
+
+```text
+v1.1
+ppm
+→ mg/m³
+→ Exposure Concentration (mg/m³)
+→ / RfC (mg/m³)
+→ RQ/HQ dimensionless ✅
+```
+
+EPA bahkan secara eksplisit menyatakan intake equation berbasis inhalation rate dan body weight **tidak direkomendasikan untuk estimasi exposure inhalation dalam metodologi inhalation risk yang diperbarui**, dan merekomendasikan air concentration sebagai exposure metric. ([SEMS Pub](https://semspub.epa.gov/work/HQ/140530.pdf "RISK ASSESSMENT GUIDANCE FOR SUPERFUND VOLUME I: HUMAN HEALTH EVALUATION MANUAL (RAGS) PART F, SUPPLEMENTAL GUIDANCE FOR INHALATION RISK ASSESSMENT"))

@@ -23,4 +23,4 @@ class RequestIDMiddleware:
 
             return response
         finally:
-            request_id_ctx.reset(token) 
+            request_id_ctx.reset(token)

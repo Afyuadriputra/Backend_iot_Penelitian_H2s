@@ -8,9 +8,7 @@ def test_request_id_is_created():
     factory = RequestFactory()
     request = factory.get("/test/")
 
-    middleware = RequestIDMiddleware(
-        lambda request: HttpResponse("OK")
-    )
+    middleware = RequestIDMiddleware(lambda request: HttpResponse("OK"))
 
     response = middleware(request)
 
@@ -27,9 +25,7 @@ def test_existing_request_id_is_reused():
         HTTP_X_REQUEST_ID="existing-request-id",
     )
 
-    middleware = RequestIDMiddleware(
-        lambda request: HttpResponse("OK")
-    )
+    middleware = RequestIDMiddleware(lambda request: HttpResponse("OK"))
 
     response = middleware(request)
 

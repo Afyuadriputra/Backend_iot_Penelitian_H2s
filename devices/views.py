@@ -1,4 +1,3 @@
-# Create your views here.
 from rest_framework import status, viewsets
 from rest_framework.decorators import action
 from rest_framework.response import Response
@@ -38,11 +37,20 @@ class H2SReadingViewSet(viewsets.ReadOnlyModelViewSet):
         url_path="latest",
     )
     def latest(self, request):
-        reading = self.get_queryset().first()
+        reading = (
+            self.get_queryset()
+            .order_by(
+                "-received_at",
+                "-id",
+            )
+            .first()
+        )
 
         if reading is None:
             return Response(
-                {"detail": "No H2S reading available."},
+                {
+                    "detail": "No H2S reading available.",
+                },
                 status=status.HTTP_404_NOT_FOUND,
             )
 

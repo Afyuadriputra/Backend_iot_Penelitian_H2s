@@ -1,0 +1,1390 @@
+openapi: 3.0.3
+info:
+  title: ''
+  version: 0.0.0
+paths:
+  /api/schema/:
+    get:
+      operationId: schema_retrieve
+      description: |-
+        OpenApi3 schema for this API. Format can be selected via content negotiation.
+
+        - YAML: application/vnd.oai.openapi
+        - JSON: application/vnd.oai.openapi+json
+      parameters:
+      - in: query
+        name: format
+        schema:
+          type: string
+          enum:
+          - json
+          - yaml
+      - in: query
+        name: lang
+        schema:
+          type: string
+          enum:
+          - af
+          - ar
+          - ar-dz
+          - ast
+          - az
+          - be
+          - bg
+          - bn
+          - br
+          - bs
+          - ca
+          - ckb
+          - cs
+          - cy
+          - da
+          - de
+          - dsb
+          - el
+          - en
+          - en-au
+          - en-gb
+          - eo
+          - es
+          - es-ar
+          - es-co
+          - es-mx
+          - es-ni
+          - es-ve
+          - et
+          - eu
+          - fa
+          - fi
+          - fr
+          - fy
+          - ga
+          - gd
+          - gl
+          - he
+          - hi
+          - hr
+          - hsb
+          - hu
+          - hy
+          - ia
+          - id
+          - ig
+          - io
+          - is
+          - it
+          - ja
+          - ka
+          - kab
+          - kk
+          - km
+          - kn
+          - ko
+          - ky
+          - lb
+          - lt
+          - lv
+          - mk
+          - ml
+          - mn
+          - mr
+          - ms
+          - my
+          - nb
+          - ne
+          - nl
+          - nn
+          - os
+          - pa
+          - pl
+          - pt
+          - pt-br
+          - ro
+          - ru
+          - sk
+          - sl
+          - sq
+          - sr
+          - sr-latn
+          - sv
+          - sw
+          - ta
+          - te
+          - tg
+          - th
+          - tk
+          - tr
+          - tt
+          - udm
+          - ug
+          - uk
+          - ur
+          - uz
+          - vi
+          - zh-hans
+          - zh-hant
+      tags:
+      - schema
+      security:
+      - cookieAuth: []
+      - basicAuth: []
+      - {}
+      responses:
+        '200':
+          content:
+            application/vnd.oai.openapi:
+              schema:
+                type: object
+                additionalProperties: {}
+            application/yaml:
+              schema:
+                type: object
+                additionalProperties: {}
+            application/vnd.oai.openapi+json:
+              schema:
+                type: object
+                additionalProperties: {}
+            application/json:
+              schema:
+                type: object
+                additionalProperties: {}
+          description: ''
+  /api/v1/alerts/:
+    get:
+      operationId: v1_alerts_list
+      parameters:
+      - in: query
+        name: alert_level
+        schema:
+          type: string
+      - in: query
+        name: device_code
+        schema:
+          type: string
+      - name: page
+        required: false
+        in: query
+        description: A page number within the paginated result set.
+        schema:
+          type: integer
+      - in: query
+        name: status
+        schema:
+          type: string
+      - in: query
+        name: worker_code
+        schema:
+          type: string
+      tags:
+      - v1
+      security:
+      - cookieAuth: []
+      - basicAuth: []
+      - {}
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaginatedAlertList'
+          description: ''
+  /api/v1/alerts/{id}/:
+    get:
+      operationId: v1_alerts_retrieve
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        required: true
+      tags:
+      - v1
+      security:
+      - cookieAuth: []
+      - basicAuth: []
+      - {}
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Alert'
+          description: ''
+  /api/v1/alerts/{id}/acknowledge/:
+    patch:
+      operationId: v1_alerts_acknowledge_partial_update
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        required: true
+      tags:
+      - v1
+      security:
+      - cookieAuth: []
+      - basicAuth: []
+      - {}
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Alert'
+          description: ''
+  /api/v1/alerts/{id}/resolve/:
+    patch:
+      operationId: v1_alerts_resolve_partial_update
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        required: true
+      tags:
+      - v1
+      security:
+      - cookieAuth: []
+      - basicAuth: []
+      - {}
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Alert'
+          description: ''
+  /api/v1/alerts/evaluate/:
+    post:
+      operationId: v1_alerts_evaluate_create
+      tags:
+      - v1
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AlertEvaluateRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/AlertEvaluateRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/AlertEvaluateRequest'
+        required: true
+      security:
+      - cookieAuth: []
+      - basicAuth: []
+      - {}
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AlertEvaluationResponse'
+          description: ''
+        '201':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AlertEvaluationResponse'
+          description: ''
+  /api/v1/arkl/historical/:
+    post:
+      operationId: v1_arkl_historical_create
+      summary: Calculate historical ARKL risk
+      tags:
+      - ARKL
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/HistoricalARKLRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/HistoricalARKLRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/HistoricalARKLRequest'
+        required: true
+      security:
+      - cookieAuth: []
+      - basicAuth: []
+      - {}
+      responses:
+        '201':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ARKLResult'
+          description: ''
+  /api/v1/arkl/realtime/:
+    post:
+      operationId: v1_arkl_realtime_create
+      summary: Calculate realtime ARKL risk
+      tags:
+      - ARKL
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RealtimeARKLRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/RealtimeARKLRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/RealtimeARKLRequest'
+        required: true
+      security:
+      - cookieAuth: []
+      - basicAuth: []
+      - {}
+      responses:
+        '201':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ARKLResult'
+          description: ''
+  /api/v1/arkl/results/:
+    get:
+      operationId: v1_arkl_results_list
+      summary: List ARKL results
+      parameters:
+      - name: page
+        required: false
+        in: query
+        description: A page number within the paginated result set.
+        schema:
+          type: integer
+      tags:
+      - ARKL
+      security:
+      - cookieAuth: []
+      - basicAuth: []
+      - {}
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaginatedARKLResultList'
+          description: ''
+  /api/v1/arkl/results/{id}/:
+    get:
+      operationId: v1_arkl_results_retrieve
+      summary: Retrieve ARKL result
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        required: true
+      tags:
+      - ARKL
+      security:
+      - cookieAuth: []
+      - basicAuth: []
+      - {}
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ARKLResult'
+          description: ''
+  /api/v1/devices/:
+    get:
+      operationId: v1_devices_list
+      parameters:
+      - name: page
+        required: false
+        in: query
+        description: A page number within the paginated result set.
+        schema:
+          type: integer
+      tags:
+      - v1
+      security:
+      - cookieAuth: []
+      - basicAuth: []
+      - {}
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaginatedDeviceList'
+          description: ''
+  /api/v1/devices/{id}/:
+    get:
+      operationId: v1_devices_retrieve
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        description: A unique integer value identifying this device.
+        required: true
+      tags:
+      - v1
+      security:
+      - cookieAuth: []
+      - basicAuth: []
+      - {}
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Device'
+          description: ''
+  /api/v1/exposure-profiles/:
+    get:
+      operationId: v1_exposure_profiles_list
+      parameters:
+      - name: page
+        required: false
+        in: query
+        description: A page number within the paginated result set.
+        schema:
+          type: integer
+      tags:
+      - v1
+      security:
+      - cookieAuth: []
+      - basicAuth: []
+      - {}
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaginatedExposureProfileList'
+          description: ''
+    post:
+      operationId: v1_exposure_profiles_create
+      tags:
+      - v1
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ExposureProfile'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/ExposureProfile'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/ExposureProfile'
+        required: true
+      security:
+      - cookieAuth: []
+      - basicAuth: []
+      - {}
+      responses:
+        '201':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ExposureProfile'
+          description: ''
+  /api/v1/exposure-profiles/{id}/:
+    get:
+      operationId: v1_exposure_profiles_retrieve
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        description: A unique integer value identifying this exposure profile.
+        required: true
+      tags:
+      - v1
+      security:
+      - cookieAuth: []
+      - basicAuth: []
+      - {}
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ExposureProfile'
+          description: ''
+    patch:
+      operationId: v1_exposure_profiles_partial_update
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        description: A unique integer value identifying this exposure profile.
+        required: true
+      tags:
+      - v1
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PatchedExposureProfile'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/PatchedExposureProfile'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/PatchedExposureProfile'
+      security:
+      - cookieAuth: []
+      - basicAuth: []
+      - {}
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ExposureProfile'
+          description: ''
+  /api/v1/readings/:
+    get:
+      operationId: v1_readings_list
+      parameters:
+      - name: page
+        required: false
+        in: query
+        description: A page number within the paginated result set.
+        schema:
+          type: integer
+      tags:
+      - v1
+      security:
+      - cookieAuth: []
+      - basicAuth: []
+      - {}
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaginatedH2SReadingList'
+          description: ''
+  /api/v1/readings/{id}/:
+    get:
+      operationId: v1_readings_retrieve
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        description: A unique integer value identifying this h2s reading.
+        required: true
+      tags:
+      - v1
+      security:
+      - cookieAuth: []
+      - basicAuth: []
+      - {}
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/H2SReading'
+          description: ''
+  /api/v1/readings/latest/:
+    get:
+      operationId: v1_readings_latest_retrieve
+      tags:
+      - v1
+      security:
+      - cookieAuth: []
+      - basicAuth: []
+      - {}
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/H2SReading'
+          description: ''
+  /api/v1/workers/:
+    get:
+      operationId: v1_workers_list
+      parameters:
+      - name: page
+        required: false
+        in: query
+        description: A page number within the paginated result set.
+        schema:
+          type: integer
+      tags:
+      - v1
+      security:
+      - cookieAuth: []
+      - basicAuth: []
+      - {}
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaginatedWorkerList'
+          description: ''
+    post:
+      operationId: v1_workers_create
+      tags:
+      - v1
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Worker'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/Worker'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/Worker'
+        required: true
+      security:
+      - cookieAuth: []
+      - basicAuth: []
+      - {}
+      responses:
+        '201':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Worker'
+          description: ''
+  /api/v1/workers/{id}/:
+    get:
+      operationId: v1_workers_retrieve
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        description: A unique integer value identifying this worker.
+        required: true
+      tags:
+      - v1
+      security:
+      - cookieAuth: []
+      - basicAuth: []
+      - {}
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Worker'
+          description: ''
+components:
+  schemas:
+    ARKLResult:
+      type: object
+      properties:
+        id:
+          type: integer
+          readOnly: true
+        worker:
+          type: integer
+          readOnly: true
+        worker_code:
+          type: string
+          readOnly: true
+        reading:
+          type: integer
+          readOnly: true
+          nullable: true
+        device_code:
+          type: string
+          nullable: true
+          readOnly: true
+        calculation_type:
+          allOf:
+          - $ref: '#/components/schemas/CalculationTypeEnum'
+          readOnly: true
+        concentration_ppm:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,8}(?:\.\d{0,6})?$
+          readOnly: true
+        concentration_mg_m3:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,8}(?:\.\d{0,6})?$
+          readOnly: true
+        exposure_concentration_mg_m3:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,8}(?:\.\d{0,6})?$
+          readOnly: true
+          nullable: true
+        body_weight:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,6}(?:\.\d{0,4})?$
+          readOnly: true
+        exposure_time:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,6}(?:\.\d{0,4})?$
+          readOnly: true
+        exposure_frequency:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,6}(?:\.\d{0,4})?$
+          readOnly: true
+        exposure_duration:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,6}(?:\.\d{0,4})?$
+          readOnly: true
+        inhalation_rate:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,6}(?:\.\d{0,4})?$
+          readOnly: true
+        averaging_time:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,10}(?:\.\d{0,4})?$
+          readOnly: true
+          nullable: true
+        intake:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,12}(?:\.\d{0,12})?$
+          readOnly: true
+          nullable: true
+        rfc:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,6}(?:\.\d{0,8})?$
+          readOnly: true
+        rq:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,12}(?:\.\d{0,12})?$
+          readOnly: true
+        interpretation:
+          type: string
+          readOnly: true
+        calculation_version:
+          type: string
+          readOnly: true
+        source_simulated:
+          type: boolean
+          readOnly: true
+        period_start:
+          type: string
+          format: date-time
+          readOnly: true
+          nullable: true
+        period_end:
+          type: string
+          format: date-time
+          readOnly: true
+          nullable: true
+        reading_count:
+          type: integer
+          readOnly: true
+          nullable: true
+        created_at:
+          type: string
+          format: date-time
+          readOnly: true
+      required:
+      - averaging_time
+      - body_weight
+      - calculation_type
+      - calculation_version
+      - concentration_mg_m3
+      - concentration_ppm
+      - created_at
+      - device_code
+      - exposure_concentration_mg_m3
+      - exposure_duration
+      - exposure_frequency
+      - exposure_time
+      - id
+      - inhalation_rate
+      - intake
+      - interpretation
+      - period_end
+      - period_start
+      - reading
+      - reading_count
+      - rfc
+      - rq
+      - source_simulated
+      - worker
+      - worker_code
+    Alert:
+      type: object
+      properties:
+        id:
+          type: integer
+          readOnly: true
+        worker_code:
+          type: string
+          readOnly: true
+        device_code:
+          type: string
+          readOnly: true
+        reading_id:
+          type: integer
+          readOnly: true
+        arkl_result_id:
+          type: integer
+          readOnly: true
+        concentration_ppm:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,8}(?:\.\d{0,6})?$
+          readOnly: true
+        environmental_level:
+          type: integer
+          readOnly: true
+        environmental_status:
+          type: string
+          readOnly: true
+        environmental_severity:
+          allOf:
+          - $ref: '#/components/schemas/EnvironmentalSeverityEnum'
+          readOnly: true
+        rq:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,12}(?:\.\d{0,12})?$
+          readOnly: true
+        risk_interpretation:
+          type: string
+          readOnly: true
+        calculation_version:
+          type: string
+          readOnly: true
+        alert_level:
+          allOf:
+          - $ref: '#/components/schemas/AlertLevelEnum'
+          readOnly: true
+        risk_status:
+          allOf:
+          - $ref: '#/components/schemas/RiskStatusEnum'
+          readOnly: true
+        status:
+          allOf:
+          - $ref: '#/components/schemas/StatusEnum'
+          readOnly: true
+        recommendation_codes:
+          readOnly: true
+        alert_rule_version:
+          type: string
+          readOnly: true
+        source_simulated:
+          type: boolean
+          readOnly: true
+        acknowledged_at:
+          type: string
+          format: date-time
+          readOnly: true
+          nullable: true
+        resolved_at:
+          type: string
+          format: date-time
+          readOnly: true
+          nullable: true
+        created_at:
+          type: string
+          format: date-time
+          readOnly: true
+        updated_at:
+          type: string
+          format: date-time
+          readOnly: true
+      required:
+      - acknowledged_at
+      - alert_level
+      - alert_rule_version
+      - arkl_result_id
+      - calculation_version
+      - concentration_ppm
+      - created_at
+      - device_code
+      - environmental_level
+      - environmental_severity
+      - environmental_status
+      - id
+      - reading_id
+      - recommendation_codes
+      - resolved_at
+      - risk_interpretation
+      - risk_status
+      - rq
+      - source_simulated
+      - status
+      - updated_at
+      - worker_code
+    AlertEvaluateRequest:
+      type: object
+      properties:
+        arkl_result_id:
+          type: integer
+      required:
+      - arkl_result_id
+    AlertEvaluationResponse:
+      type: object
+      properties:
+        created:
+          type: boolean
+        duplicate:
+          type: boolean
+        escalated:
+          type: boolean
+        alert:
+          allOf:
+          - $ref: '#/components/schemas/Alert'
+          nullable: true
+      required:
+      - alert
+      - created
+      - duplicate
+      - escalated
+    AlertLevelEnum:
+      enum:
+      - NONE
+      - LOW
+      - MEDIUM
+      - HIGH
+      - CRITICAL
+      type: string
+      description: |-
+        * `NONE` - NONE
+        * `LOW` - LOW
+        * `MEDIUM` - MEDIUM
+        * `HIGH` - HIGH
+        * `CRITICAL` - CRITICAL
+    CalculationTypeEnum:
+      enum:
+      - REALTIME
+      - HISTORICAL
+      type: string
+      description: |-
+        * `REALTIME` - Realtime
+        * `HISTORICAL` - Historical
+    Device:
+      type: object
+      properties:
+        id:
+          type: integer
+          readOnly: true
+        device_code:
+          type: string
+          maxLength: 100
+        name:
+          type: string
+          maxLength: 150
+        location:
+          type: string
+          maxLength: 255
+        is_active:
+          type: boolean
+        created_at:
+          type: string
+          format: date-time
+          readOnly: true
+        updated_at:
+          type: string
+          format: date-time
+          readOnly: true
+      required:
+      - created_at
+      - device_code
+      - id
+      - updated_at
+    EnvironmentalSeverityEnum:
+      enum:
+      - NORMAL
+      - CAUTION
+      - WARNING
+      - DANGER
+      - CRITICAL
+      type: string
+      description: |-
+        * `NORMAL` - NORMAL
+        * `CAUTION` - CAUTION
+        * `WARNING` - WARNING
+        * `DANGER` - DANGER
+        * `CRITICAL` - CRITICAL
+    ExposureProfile:
+      type: object
+      properties:
+        id:
+          type: integer
+          readOnly: true
+        worker:
+          type: integer
+        worker_code:
+          type: string
+          readOnly: true
+        body_weight:
+          type: number
+          format: double
+          minimum: 0.01
+          description: Berat badan dalam kilogram.
+        exposure_time:
+          type: number
+          format: double
+          minimum: 0
+          description: Waktu pajanan. Satuan final mengikuti metode ARKL.
+        exposure_frequency:
+          type: number
+          format: double
+          minimum: 0
+          description: Frekuensi pajanan. Satuan final mengikuti metode ARKL.
+        exposure_duration:
+          type: number
+          format: double
+          minimum: 0
+          description: Durasi pajanan. Satuan final mengikuti metode ARKL.
+        inhalation_rate:
+          type: number
+          format: double
+          minimum: 0
+          description: Laju inhalasi. Satuan final mengikuti metode ARKL.
+        created_at:
+          type: string
+          format: date-time
+          readOnly: true
+        updated_at:
+          type: string
+          format: date-time
+          readOnly: true
+      required:
+      - body_weight
+      - created_at
+      - exposure_duration
+      - exposure_frequency
+      - exposure_time
+      - id
+      - inhalation_rate
+      - updated_at
+      - worker
+      - worker_code
+    H2SReading:
+      type: object
+      properties:
+        id:
+          type: integer
+          readOnly: true
+        device:
+          type: integer
+          readOnly: true
+        device_code:
+          type: string
+          readOnly: true
+        ppm:
+          type: number
+          format: double
+          readOnly: true
+        adc:
+          type: integer
+          readOnly: true
+        filtered_adc:
+          type: number
+          format: double
+          readOnly: true
+        level:
+          type: integer
+          readOnly: true
+        status:
+          type: string
+          readOnly: true
+        uptime_ms:
+          type: integer
+          readOnly: true
+        simulated:
+          type: boolean
+          readOnly: true
+        received_at:
+          type: string
+          format: date-time
+          readOnly: true
+      required:
+      - adc
+      - device
+      - device_code
+      - filtered_adc
+      - id
+      - level
+      - ppm
+      - received_at
+      - simulated
+      - status
+      - uptime_ms
+    HistoricalARKLRequest:
+      type: object
+      properties:
+        worker:
+          type: integer
+        device:
+          type: integer
+        start_time:
+          type: string
+          format: date-time
+        end_time:
+          type: string
+          format: date-time
+      required:
+      - device
+      - end_time
+      - start_time
+      - worker
+    PaginatedARKLResultList:
+      type: object
+      required:
+      - count
+      - results
+      properties:
+        count:
+          type: integer
+          example: 123
+        next:
+          type: string
+          nullable: true
+          format: uri
+          example: http://api.example.org/accounts/?page=4
+        previous:
+          type: string
+          nullable: true
+          format: uri
+          example: http://api.example.org/accounts/?page=2
+        results:
+          type: array
+          items:
+            $ref: '#/components/schemas/ARKLResult'
+    PaginatedAlertList:
+      type: object
+      required:
+      - count
+      - results
+      properties:
+        count:
+          type: integer
+          example: 123
+        next:
+          type: string
+          nullable: true
+          format: uri
+          example: http://api.example.org/accounts/?page=4
+        previous:
+          type: string
+          nullable: true
+          format: uri
+          example: http://api.example.org/accounts/?page=2
+        results:
+          type: array
+          items:
+            $ref: '#/components/schemas/Alert'
+    PaginatedDeviceList:
+      type: object
+      required:
+      - count
+      - results
+      properties:
+        count:
+          type: integer
+          example: 123
+        next:
+          type: string
+          nullable: true
+          format: uri
+          example: http://api.example.org/accounts/?page=4
+        previous:
+          type: string
+          nullable: true
+          format: uri
+          example: http://api.example.org/accounts/?page=2
+        results:
+          type: array
+          items:
+            $ref: '#/components/schemas/Device'
+    PaginatedExposureProfileList:
+      type: object
+      required:
+      - count
+      - results
+      properties:
+        count:
+          type: integer
+          example: 123
+        next:
+          type: string
+          nullable: true
+          format: uri
+          example: http://api.example.org/accounts/?page=4
+        previous:
+          type: string
+          nullable: true
+          format: uri
+          example: http://api.example.org/accounts/?page=2
+        results:
+          type: array
+          items:
+            $ref: '#/components/schemas/ExposureProfile'
+    PaginatedH2SReadingList:
+      type: object
+      required:
+      - count
+      - results
+      properties:
+        count:
+          type: integer
+          example: 123
+        next:
+          type: string
+          nullable: true
+          format: uri
+          example: http://api.example.org/accounts/?page=4
+        previous:
+          type: string
+          nullable: true
+          format: uri
+          example: http://api.example.org/accounts/?page=2
+        results:
+          type: array
+          items:
+            $ref: '#/components/schemas/H2SReading'
+    PaginatedWorkerList:
+      type: object
+      required:
+      - count
+      - results
+      properties:
+        count:
+          type: integer
+          example: 123
+        next:
+          type: string
+          nullable: true
+          format: uri
+          example: http://api.example.org/accounts/?page=4
+        previous:
+          type: string
+          nullable: true
+          format: uri
+          example: http://api.example.org/accounts/?page=2
+        results:
+          type: array
+          items:
+            $ref: '#/components/schemas/Worker'
+    PatchedExposureProfile:
+      type: object
+      properties:
+        id:
+          type: integer
+          readOnly: true
+        worker:
+          type: integer
+        worker_code:
+          type: string
+          readOnly: true
+        body_weight:
+          type: number
+          format: double
+          minimum: 0.01
+          description: Berat badan dalam kilogram.
+        exposure_time:
+          type: number
+          format: double
+          minimum: 0
+          description: Waktu pajanan. Satuan final mengikuti metode ARKL.
+        exposure_frequency:
+          type: number
+          format: double
+          minimum: 0
+          description: Frekuensi pajanan. Satuan final mengikuti metode ARKL.
+        exposure_duration:
+          type: number
+          format: double
+          minimum: 0
+          description: Durasi pajanan. Satuan final mengikuti metode ARKL.
+        inhalation_rate:
+          type: number
+          format: double
+          minimum: 0
+          description: Laju inhalasi. Satuan final mengikuti metode ARKL.
+        created_at:
+          type: string
+          format: date-time
+          readOnly: true
+        updated_at:
+          type: string
+          format: date-time
+          readOnly: true
+    RealtimeARKLRequest:
+      type: object
+      properties:
+        worker:
+          type: integer
+        device:
+          type: integer
+      required:
+      - device
+      - worker
+    RiskStatusEnum:
+      enum:
+      - NO_ACTION_REQUIRED
+      - MONITORING_REQUIRED
+      - RISK_MANAGEMENT_REQUIRED
+      - IMMEDIATE_ACTION_REQUIRED
+      type: string
+      description: |-
+        * `NO_ACTION_REQUIRED` - NO_ACTION_REQUIRED
+        * `MONITORING_REQUIRED` - MONITORING_REQUIRED
+        * `RISK_MANAGEMENT_REQUIRED` - RISK_MANAGEMENT_REQUIRED
+        * `IMMEDIATE_ACTION_REQUIRED` - IMMEDIATE_ACTION_REQUIRED
+    StatusEnum:
+      enum:
+      - OPEN
+      - ACKNOWLEDGED
+      - RESOLVED
+      type: string
+      description: |-
+        * `OPEN` - OPEN
+        * `ACKNOWLEDGED` - ACKNOWLEDGED
+        * `RESOLVED` - RESOLVED
+    Worker:
+      type: object
+      properties:
+        id:
+          type: integer
+          readOnly: true
+        code:
+          type: string
+          maxLength: 50
+        is_active:
+          type: boolean
+        created_at:
+          type: string
+          format: date-time
+          readOnly: true
+        updated_at:
+          type: string
+          format: date-time
+          readOnly: true
+      required:
+      - code
+      - created_at
+      - id
+      - updated_at
+  securitySchemes:
+    basicAuth:
+      type: http
+      scheme: basic
+    cookieAuth:
+      type: apiKey
+      in: cookie
+      name: sessionid

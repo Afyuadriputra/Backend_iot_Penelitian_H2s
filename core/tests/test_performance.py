@@ -11,9 +11,7 @@ def test_response_time_header_exists():
     factory = RequestFactory()
     request = factory.get("/test/")
 
-    middleware = PerformanceMiddleware(
-        lambda request: HttpResponse("OK")
-    )
+    middleware = PerformanceMiddleware(lambda request: HttpResponse("OK"))
 
     response = middleware(request)
 
@@ -43,7 +41,4 @@ def test_slow_request_is_logged(caplog):
 
     assert response.status_code == 200
 
-    assert any(
-        "slow_request" in record.message
-        for record in caplog.records
-    )
+    assert any("slow_request" in record.message for record in caplog.records)

@@ -24,15 +24,9 @@ def test_request_logging_success(caplog):
 
     messages = [record.message for record in caplog.records]
 
-    assert any(
-        "request_started" in message
-        for message in messages
-    )
+    assert any("request_started" in message for message in messages)
 
-    assert any(
-        "request_completed" in message
-        for message in messages
-    )
+    assert any("request_completed" in message for message in messages)
 
 
 def test_request_logging_exception(caplog):
@@ -53,7 +47,4 @@ def test_request_logging_exception(caplog):
         except ValueError:
             pass
 
-    assert any(
-        "request_failed" in record.message
-        for record in caplog.records
-    )
+    assert any("request_failed" in record.message for record in caplog.records)

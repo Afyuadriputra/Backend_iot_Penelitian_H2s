@@ -10,9 +10,7 @@ def test_403_is_logged(caplog):
     factory = RequestFactory()
     request = factory.get("/private/")
 
-    middleware = SecurityAuditMiddleware(
-        lambda request: HttpResponse(status=403)
-    )
+    middleware = SecurityAuditMiddleware(lambda request: HttpResponse(status=403))
 
     with caplog.at_level(
         logging.WARNING,
@@ -22,19 +20,14 @@ def test_403_is_logged(caplog):
 
     assert response.status_code == 403
 
-    assert any(
-        "access_denied" in record.message
-        for record in caplog.records
-    )
+    assert any("access_denied" in record.message for record in caplog.records)
 
 
 def test_400_is_logged(caplog):
     factory = RequestFactory()
     request = factory.post("/invalid/")
 
-    middleware = SecurityAuditMiddleware(
-        lambda request: HttpResponse(status=400)
-    )
+    middleware = SecurityAuditMiddleware(lambda request: HttpResponse(status=400))
 
     with caplog.at_level(
         logging.INFO,
@@ -44,19 +37,14 @@ def test_400_is_logged(caplog):
 
     assert response.status_code == 400
 
-    assert any(
-        "bad_request" in record.message
-        for record in caplog.records
-    )
+    assert any("bad_request" in record.message for record in caplog.records)
 
 
 def test_200_is_not_security_warning(caplog):
     factory = RequestFactory()
     request = factory.get("/public/")
 
-    middleware = SecurityAuditMiddleware(
-        lambda request: HttpResponse(status=200)
-    )
+    middleware = SecurityAuditMiddleware(lambda request: HttpResponse(status=200))
 
     with caplog.at_level(
         logging.WARNING,
@@ -66,7 +54,4 @@ def test_200_is_not_security_warning(caplog):
 
     assert response.status_code == 200
 
-    assert not any(
-        "access_denied" in record.message
-        for record in caplog.records
-    )
+    assert not any("access_denied" in record.message for record in caplog.records)
