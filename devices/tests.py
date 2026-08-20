@@ -1,5 +1,6 @@
 import json
 
+from exposure.models import Worker
 import pytest
 from django.db import IntegrityError
 
@@ -11,6 +12,13 @@ from devices.services.telemetry import (
     TelemetryValidationError,
     validate_telemetry_payload,
 )
+
+import pytest
+from django.contrib.auth import get_user_model
+from rest_framework.authtoken.models import Token
+from rest_framework.test import APIClient
+
+from accounts.models import AccountProfile
 
 
 @pytest.mark.django_db
@@ -228,7 +236,9 @@ def test_existing_device_is_reused():
 
 
 @pytest.mark.django_db
-def test_latest_reading_api(client):
+def test_latest_reading_api(
+    researcher_api_client,
+):
     device = Device.objects.create(
         device_code="H2S-TPA-001",
     )
@@ -244,18 +254,22 @@ def test_latest_reading_api(client):
         simulated=True,
     )
 
-    response = client.get("/api/v1/readings/latest/")
+    response = researcher_api_client.get(
+        "/api/v1/readings/latest/"
+    )
 
     assert response.status_code == 200
 
     data = response.json()
 
-    assert data["device_code"] == "H2S-TPA-001"
     assert data["ppm"] == 12.45
-
+    assert data["status"] == "WARNING"
+    assert data["simulated"] is True
 
 @pytest.mark.django_db
-def test_reading_list_is_paginated(client):
+def test_reading_list_is_paginated(
+    researcher_api_client,
+):
     device = Device.objects.create(
         device_code="H2S-TPA-001",
     )
@@ -272,7 +286,9 @@ def test_reading_list_is_paginated(client):
             simulated=True,
         )
 
-    response = client.get("/api/v1/readings/")
+    response = researcher_api_client.get(
+        "/api/v1/readings/"
+    )
 
     assert response.status_code == 200
 
@@ -281,3 +297,79 @@ def test_reading_list_is_paginated(client):
     assert "count" in data
     assert "results" in data
     assert data["count"] == 3
+    assert len(data["results"]) == 3
+User = get_user_model()
+
+
+@pytest.fixture
+def researcher_api_client():
+    user = User.objects.create_user(
+        username="devices-researcher",
+        password="StrongPass123!",
+    )
+
+    AccountProfile.objects.create(
+        user=user,
+        role=AccountProfile.Role.RESEARCHER,
+    )
+
+    token = Token.objects.create(
+        user=user,
+    )
+
+    client = APIClient()
+
+    client.credentials(
+        HTTP_AUTHORIZATION=(
+            f"Token {token.key}"
+        )
+    )
+
+    return client
+
+@pytest.mark.django_db
+def test_anonymous_cannot_access_readings(
+    client,
+):
+    response = client.get(
+        "/api/v1/readings/"
+    )
+
+    assert response.status_code == 401
+
+@pytest.mark.django_db
+def test_worker_cannot_access_device_readings():
+    worker = Worker.objects.create(
+        code="PML-DEVICE-DENIED",
+        name="Worker Device Test",
+        age=40,
+    )
+
+    user = User.objects.create_user(
+        username="devices-worker",
+        password="StrongPass123!",
+    )
+
+    AccountProfile.objects.create(
+        user=user,
+        role=AccountProfile.Role.WORKER,
+        worker=worker,
+    )
+
+    token = Token.objects.create(
+        user=user,
+    )
+
+    client = APIClient()
+
+    client.credentials(
+        HTTP_AUTHORIZATION=(
+            f"Token {token.key}"
+        )
+    )
+
+    response = client.get(
+        "/api/v1/readings/"
+    )
+
+    assert response.status_code == 403

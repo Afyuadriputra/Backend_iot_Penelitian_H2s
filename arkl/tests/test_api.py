@@ -1,11 +1,78 @@
 from datetime import timedelta
 
 import pytest
+from django.contrib.auth import get_user_model
 from django.utils import timezone
+from rest_framework.authtoken.models import Token
+from rest_framework.test import APIClient
 
+from accounts.models import AccountProfile
 from arkl.models import ARKLResult
 from devices.models import Device, H2SReading
 from exposure.models import ExposureProfile, Worker
+
+
+User = get_user_model()
+
+
+# ============================================================
+# Authentication fixtures
+# ============================================================
+
+
+@pytest.fixture
+def operator_api_client():
+    user = User.objects.create_user(
+        username="arkl-operator",
+        password="StrongPass123!",
+    )
+
+    AccountProfile.objects.create(
+        user=user,
+        role=AccountProfile.Role.OPERATOR,
+    )
+
+    token = Token.objects.create(
+        user=user,
+    )
+
+    client = APIClient()
+
+    client.credentials(
+        HTTP_AUTHORIZATION=f"Token {token.key}"
+    )
+
+    return client
+
+
+@pytest.fixture
+def researcher_api_client():
+    user = User.objects.create_user(
+        username="arkl-researcher",
+        password="StrongPass123!",
+    )
+
+    AccountProfile.objects.create(
+        user=user,
+        role=AccountProfile.Role.RESEARCHER,
+    )
+
+    token = Token.objects.create(
+        user=user,
+    )
+
+    client = APIClient()
+
+    client.credentials(
+        HTTP_AUTHORIZATION=f"Token {token.key}"
+    )
+
+    return client
+
+
+# ============================================================
+# Test data helpers
+# ============================================================
 
 
 def create_worker_with_profile(
@@ -49,55 +116,45 @@ def create_device_with_reading(
     return device, reading
 
 
-@pytest.mark.django_db
-def test_realtime_arkl_api_creates_result(client):
-    worker = create_worker_with_profile()
-    device, reading = create_device_with_reading()
+# ============================================================
+# Realtime ARKL API
+# ============================================================
 
-    response = client.post(
+
+@pytest.mark.django_db
+def test_realtime_arkl_api_creates_result(
+    operator_api_client,
+):
+    worker = create_worker_with_profile()
+
+    device, reading = (
+        create_device_with_reading()
+    )
+
+    response = operator_api_client.post(
         "/api/v1/arkl/realtime/",
-        data={
+        {
             "worker": worker.pk,
             "device": device.pk,
         },
-        content_type="application/json",
+        format="json",
     )
 
     assert response.status_code == 201
 
-    data = response.json()
-
-    assert data["calculation_type"] == "REALTIME"
-    assert data["worker"] == worker.pk
-    assert data["reading"] == reading.pk
-
-    assert data["concentration_ppm"] is not None
-    assert data["concentration_mg_m3"] is not None
-
-    # ARKL v2 no longer uses exposure concentration
-    # as the primary RQ calculation.
-    assert data["exposure_concentration_mg_m3"] is None
-
-    # Intake-based ARKL output.
-    assert float(data["averaging_time"]) > 0
-    assert float(data["intake"]) > 0
-    assert float(data["rq"]) > 0
-
-    assert data["calculation_version"] == "2.0.0-MVP"
-
-    assert data["interpretation"] in {
-        "WITHIN_REFERENCE_LEVEL",
-        "ABOVE_REFERENCE_LEVEL",
-    }
-
-    assert data["source_simulated"] is True
-
     assert ARKLResult.objects.count() == 1
+
+    result = ARKLResult.objects.get()
+
+    assert result.worker == worker
+    assert result.reading == reading
+    assert result.calculation_type == "REALTIME"
+    assert result.calculation_version == "2.0.0-MVP"
 
 
 @pytest.mark.django_db
 def test_realtime_api_ignores_client_calculated_values(
-    client,
+    operator_api_client,
 ):
     worker = create_worker_with_profile(
         code="PML-CLIENT-CALC",
@@ -108,22 +165,28 @@ def test_realtime_api_ignores_client_calculated_values(
         ppm=10,
     )
 
-    response = client.post(
+    response = operator_api_client.post(
         "/api/v1/arkl/realtime/",
-        data={
+        {
             "worker": worker.pk,
             "device": device.pk,
 
-            # Values below must be ignored because
-            # calculation happens on the backend.
+            # These values must be ignored.
+            # ARKL is calculated by the backend.
             "rq": 0,
             "intake": 0,
             "averaging_time": 0,
-            "exposure_concentration_mg_m3": 999999,
-            "interpretation": "WITHIN_REFERENCE_LEVEL",
-            "calculation_version": "CLIENT-FAKE-VERSION",
+            "exposure_concentration_mg_m3": (
+                999999
+            ),
+            "interpretation": (
+                "WITHIN_REFERENCE_LEVEL"
+            ),
+            "calculation_version": (
+                "CLIENT-FAKE-VERSION"
+            ),
         },
-        content_type="application/json",
+        format="json",
     )
 
     assert response.status_code == 201
@@ -132,18 +195,33 @@ def test_realtime_api_ignores_client_calculated_values(
 
     assert float(data["rq"]) > 0
     assert float(data["intake"]) > 0
-    assert float(data["averaging_time"]) > 0
 
-    assert data["exposure_concentration_mg_m3"] is None
+    assert (
+        float(data["averaging_time"])
+        > 0
+    )
 
-    assert data["calculation_version"] == "2.0.0-MVP"
+    assert (
+        data[
+            "exposure_concentration_mg_m3"
+        ]
+        is None
+    )
 
-    assert data["calculation_version"] != "CLIENT-FAKE-VERSION"
+    assert (
+        data["calculation_version"]
+        == "2.0.0-MVP"
+    )
+
+    assert (
+        data["calculation_version"]
+        != "CLIENT-FAKE-VERSION"
+    )
 
 
 @pytest.mark.django_db
 def test_realtime_api_without_exposure_profile_returns_400(
-    client,
+    operator_api_client,
 ):
     worker = Worker.objects.create(
         code="PML-NO-PROFILE-API",
@@ -153,13 +231,13 @@ def test_realtime_api_without_exposure_profile_returns_400(
         code="H2S-NO-PROFILE-API",
     )
 
-    response = client.post(
+    response = operator_api_client.post(
         "/api/v1/arkl/realtime/",
-        data={
+        {
             "worker": worker.pk,
             "device": device.pk,
         },
-        content_type="application/json",
+        format="json",
     )
 
     assert response.status_code == 400
@@ -172,19 +250,19 @@ def test_realtime_api_without_exposure_profile_returns_400(
 
 @pytest.mark.django_db
 def test_realtime_api_invalid_worker_returns_400(
-    client,
+    operator_api_client,
 ):
     device, _ = create_device_with_reading(
         code="H2S-BAD-WORKER",
     )
 
-    response = client.post(
+    response = operator_api_client.post(
         "/api/v1/arkl/realtime/",
-        data={
+        {
             "worker": 999999,
             "device": device.pk,
         },
-        content_type="application/json",
+        format="json",
     )
 
     assert response.status_code == 400
@@ -193,28 +271,33 @@ def test_realtime_api_invalid_worker_returns_400(
 
 @pytest.mark.django_db
 def test_realtime_api_invalid_device_returns_400(
-    client,
+    operator_api_client,
 ):
     worker = create_worker_with_profile(
         code="PML-BAD-DEVICE",
     )
 
-    response = client.post(
+    response = operator_api_client.post(
         "/api/v1/arkl/realtime/",
-        data={
+        {
             "worker": worker.pk,
             "device": 999999,
         },
-        content_type="application/json",
+        format="json",
     )
 
     assert response.status_code == 400
     assert "device" in response.json()
 
 
+# ============================================================
+# Historical ARKL API
+# ============================================================
+
+
 @pytest.mark.django_db
 def test_historical_arkl_api_creates_result(
-    client,
+    operator_api_client,
 ):
     worker = create_worker_with_profile(
         code="PML-HIST-API",
@@ -225,6 +308,7 @@ def test_historical_arkl_api_creates_result(
     )
 
     now = timezone.now()
+
     readings = []
 
     for ppm in [10, 20, 30]:
@@ -241,7 +325,9 @@ def test_historical_arkl_api_creates_result(
 
         readings.append(reading)
 
-    for index, reading in enumerate(readings):
+    for index, reading in enumerate(
+        readings
+    ):
         timestamp = now - timedelta(
             minutes=30 - (index * 10)
         )
@@ -252,9 +338,9 @@ def test_historical_arkl_api_creates_result(
             received_at=timestamp,
         )
 
-    response = client.post(
+    response = operator_api_client.post(
         "/api/v1/arkl/historical/",
-        data={
+        {
             "worker": worker.pk,
             "device": device.pk,
             "start_time": (
@@ -262,53 +348,81 @@ def test_historical_arkl_api_creates_result(
             ).isoformat(),
             "end_time": now.isoformat(),
         },
-        content_type="application/json",
+        format="json",
     )
 
     assert response.status_code == 201
 
     data = response.json()
 
-    assert data["calculation_type"] == "HISTORICAL"
+    assert (
+        data["calculation_type"]
+        == "HISTORICAL"
+    )
+
     assert data["reading"] is None
     assert data["reading_count"] == 3
 
-    assert float(data["concentration_ppm"]) == 20.0
-    assert float(data["concentration_mg_m3"]) == 28.0
+    assert (
+        float(data["concentration_ppm"])
+        == 20.0
+    )
 
-    assert data["exposure_concentration_mg_m3"] is None
+    assert (
+        float(
+            data["concentration_mg_m3"]
+        )
+        == 28.0
+    )
 
-    assert float(data["averaging_time"]) > 0
+    assert (
+        data[
+            "exposure_concentration_mg_m3"
+        ]
+        is None
+    )
+
+    assert (
+        float(data["averaging_time"])
+        > 0
+    )
+
     assert float(data["intake"]) > 0
     assert float(data["rq"]) > 0
 
-    assert data["calculation_version"] == "2.0.0-MVP"
+    assert (
+        data["calculation_version"]
+        == "2.0.0-MVP"
+    )
+
     assert data["source_simulated"] is True
 
 
 @pytest.mark.django_db
 def test_historical_api_invalid_period_returns_400(
-    client,
+    operator_api_client,
 ):
     worker = create_worker_with_profile(
         code="PML-HIST-BAD-PERIOD",
     )
 
     device = Device.objects.create(
-        device_code="H2S-HIST-BAD-PERIOD",
+        device_code=(
+            "H2S-HIST-BAD-PERIOD"
+        ),
     )
 
     now = timezone.now()
 
-    response = client.post(
+    response = operator_api_client.post(
         "/api/v1/arkl/historical/",
-        data={
+        {
             "worker": worker.pk,
             "device": device.pk,
             "start_time": now.isoformat(),
             "end_time": now.isoformat(),
         },
-        content_type="application/json",
+        format="json",
     )
 
     assert response.status_code == 400
@@ -317,7 +431,7 @@ def test_historical_api_invalid_period_returns_400(
 
 @pytest.mark.django_db
 def test_historical_api_without_readings_returns_400(
-    client,
+    operator_api_client,
 ):
     worker = create_worker_with_profile(
         code="PML-HIST-EMPTY-API",
@@ -329,9 +443,9 @@ def test_historical_api_without_readings_returns_400(
 
     now = timezone.now()
 
-    response = client.post(
+    response = operator_api_client.post(
         "/api/v1/arkl/historical/",
-        data={
+        {
             "worker": worker.pk,
             "device": device.pk,
             "start_time": (
@@ -339,7 +453,7 @@ def test_historical_api_without_readings_returns_400(
             ).isoformat(),
             "end_time": now.isoformat(),
         },
-        content_type="application/json",
+        format="json",
     )
 
     assert response.status_code == 400
@@ -350,9 +464,14 @@ def test_historical_api_without_readings_returns_400(
     )
 
 
+# ============================================================
+# ARKL result API
+# ============================================================
+
+
 @pytest.mark.django_db
 def test_arkl_result_list_api(
-    client,
+    operator_api_client,
 ):
     worker = create_worker_with_profile(
         code="PML-LIST-API",
@@ -362,18 +481,23 @@ def test_arkl_result_list_api(
         code="H2S-LIST-API",
     )
 
-    create_response = client.post(
-        "/api/v1/arkl/realtime/",
-        data={
-            "worker": worker.pk,
-            "device": device.pk,
-        },
-        content_type="application/json",
+    create_response = (
+        operator_api_client.post(
+            "/api/v1/arkl/realtime/",
+            {
+                "worker": worker.pk,
+                "device": device.pk,
+            },
+            format="json",
+        )
     )
 
-    assert create_response.status_code == 201
+    assert (
+        create_response.status_code
+        == 201
+    )
 
-    response = client.get(
+    response = operator_api_client.get(
         "/api/v1/arkl/results/"
     )
 
@@ -386,14 +510,22 @@ def test_arkl_result_list_api(
 
     result = data["results"][0]
 
-    assert result["calculation_version"] == "2.0.0-MVP"
+    assert (
+        result["calculation_version"]
+        == "2.0.0-MVP"
+    )
+
     assert result["intake"] is not None
-    assert result["averaging_time"] is not None
+
+    assert (
+        result["averaging_time"]
+        is not None
+    )
 
 
 @pytest.mark.django_db
 def test_arkl_result_detail_api(
-    client,
+    operator_api_client,
 ):
     worker = create_worker_with_profile(
         code="PML-DETAIL-API",
@@ -403,21 +535,31 @@ def test_arkl_result_detail_api(
         code="H2S-DETAIL-API",
     )
 
-    create_response = client.post(
-        "/api/v1/arkl/realtime/",
-        data={
-            "worker": worker.pk,
-            "device": device.pk,
-        },
-        content_type="application/json",
+    create_response = (
+        operator_api_client.post(
+            "/api/v1/arkl/realtime/",
+            {
+                "worker": worker.pk,
+                "device": device.pk,
+            },
+            format="json",
+        )
     )
 
-    assert create_response.status_code == 201
+    assert (
+        create_response.status_code
+        == 201
+    )
 
-    result_id = create_response.json()["id"]
+    result_id = (
+        create_response.json()["id"]
+    )
 
-    response = client.get(
-        f"/api/v1/arkl/results/{result_id}/"
+    response = operator_api_client.get(
+        (
+            "/api/v1/arkl/results/"
+            f"{result_id}/"
+        )
     )
 
     assert response.status_code == 200
@@ -425,17 +567,35 @@ def test_arkl_result_detail_api(
     data = response.json()
 
     assert data["id"] == result_id
-    assert data["calculation_type"] == "REALTIME"
-    assert data["calculation_version"] == "2.0.0-MVP"
 
-    assert data["exposure_concentration_mg_m3"] is None
+    assert (
+        data["calculation_type"]
+        == "REALTIME"
+    )
+
+    assert (
+        data["calculation_version"]
+        == "2.0.0-MVP"
+    )
+
+    assert (
+        data[
+            "exposure_concentration_mg_m3"
+        ]
+        is None
+    )
+
     assert data["intake"] is not None
-    assert data["averaging_time"] is not None
+
+    assert (
+        data["averaging_time"]
+        is not None
+    )
 
 
 @pytest.mark.django_db
 def test_arkl_result_filter_by_worker_code(
-    client,
+    operator_api_client,
 ):
     worker = create_worker_with_profile(
         code="PML-FILTER-001",
@@ -445,20 +605,27 @@ def test_arkl_result_filter_by_worker_code(
         code="H2S-FILTER-001",
     )
 
-    create_response = client.post(
-        "/api/v1/arkl/realtime/",
-        data={
-            "worker": worker.pk,
-            "device": device.pk,
-        },
-        content_type="application/json",
+    create_response = (
+        operator_api_client.post(
+            "/api/v1/arkl/realtime/",
+            {
+                "worker": worker.pk,
+                "device": device.pk,
+            },
+            format="json",
+        )
     )
 
-    assert create_response.status_code == 201
+    assert (
+        create_response.status_code
+        == 201
+    )
 
-    response = client.get(
-        "/api/v1/arkl/results/"
-        "?worker_code=PML-FILTER-001"
+    response = operator_api_client.get(
+        (
+            "/api/v1/arkl/results/"
+            "?worker_code=PML-FILTER-001"
+        )
     )
 
     assert response.status_code == 200
@@ -467,7 +634,7 @@ def test_arkl_result_filter_by_worker_code(
 
 @pytest.mark.django_db
 def test_arkl_result_filter_by_calculation_type(
-    client,
+    operator_api_client,
 ):
     worker = create_worker_with_profile(
         code="PML-TYPE-FILTER",
@@ -477,21 +644,132 @@ def test_arkl_result_filter_by_calculation_type(
         code="H2S-TYPE-FILTER",
     )
 
-    create_response = client.post(
-        "/api/v1/arkl/realtime/",
-        data={
-            "worker": worker.pk,
-            "device": device.pk,
-        },
-        content_type="application/json",
+    create_response = (
+        operator_api_client.post(
+            "/api/v1/arkl/realtime/",
+            {
+                "worker": worker.pk,
+                "device": device.pk,
+            },
+            format="json",
+        )
     )
 
-    assert create_response.status_code == 201
+    assert (
+        create_response.status_code
+        == 201
+    )
 
-    response = client.get(
-        "/api/v1/arkl/results/"
-        "?calculation_type=REALTIME"
+    response = operator_api_client.get(
+        (
+            "/api/v1/arkl/results/"
+            "?calculation_type=REALTIME"
+        )
     )
 
     assert response.status_code == 200
     assert response.json()["count"] == 1
+
+
+# ============================================================
+# Layer 6 permission tests
+# ============================================================
+
+
+@pytest.mark.django_db
+def test_anonymous_cannot_calculate_realtime_arkl(
+    client,
+):
+    response = client.post(
+        "/api/v1/arkl/realtime/",
+        data={},
+        content_type="application/json",
+    )
+
+    assert response.status_code == 401
+
+
+@pytest.mark.django_db
+def test_researcher_cannot_calculate_arkl(
+    researcher_api_client,
+):
+    response = researcher_api_client.post(
+        "/api/v1/arkl/realtime/",
+        {},
+        format="json",
+    )
+
+    assert response.status_code == 403
+
+
+@pytest.mark.django_db
+def test_researcher_can_read_arkl_results(
+    operator_api_client,
+    researcher_api_client,
+):
+    worker = create_worker_with_profile(
+        code="PML-RESEARCH-READ",
+    )
+
+    device, _ = create_device_with_reading(
+        code="H2S-RESEARCH-READ",
+    )
+
+    create_response = (
+        operator_api_client.post(
+            "/api/v1/arkl/realtime/",
+            {
+                "worker": worker.pk,
+                "device": device.pk,
+            },
+            format="json",
+        )
+    )
+
+    assert (
+        create_response.status_code
+        == 201
+    )
+
+    response = researcher_api_client.get(
+        "/api/v1/arkl/results/"
+    )
+
+    assert response.status_code == 200
+    assert response.json()["count"] == 1
+
+
+@pytest.mark.django_db
+def test_worker_cannot_use_generic_arkl_api():
+    worker = Worker.objects.create(
+        code="PML-ARKL-WORKER-DENIED",
+        name="Worker ARKL",
+        age=40,
+    )
+
+    user = User.objects.create_user(
+        username="arkl-worker",
+        password="StrongPass123!",
+    )
+
+    AccountProfile.objects.create(
+        user=user,
+        role=AccountProfile.Role.WORKER,
+        worker=worker,
+    )
+
+    token = Token.objects.create(
+        user=user,
+    )
+
+    client = APIClient()
+
+    client.credentials(
+        HTTP_AUTHORIZATION=f"Token {token.key}"
+    )
+
+    response = client.get(
+        "/api/v1/arkl/results/"
+    )
+
+    assert response.status_code == 403

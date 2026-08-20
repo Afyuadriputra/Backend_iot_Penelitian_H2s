@@ -56,4 +56,11 @@ urlpatterns = [
         ),
         name="swagger-ui",
     ),
+
+    # Accounts
+    path(
+    "api/v1/",
+    include("accounts.urls"),
+),
+
 ]

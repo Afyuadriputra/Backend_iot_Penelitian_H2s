@@ -1,21 +1,41 @@
+from django.http import HttpResponse
 from drf_spectacular.utils import extend_schema
 from rest_framework import status
+from rest_framework.permissions import (
+    IsAuthenticated,
+)
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
+from accounts.permissions import (
+    ResearchReadOnly,
+)
 from research.serializers import (
     AggregatedTrendPointSerializer,
+    AlertSummarySerializer,
     ARKLResearchQuerySerializer,
     ARKLResearchResponseSerializer,
+    ExposureSummarySerializer,
     H2SSummarySerializer,
     H2STrendQuerySerializer,
     H2STrendResponseSerializer,
     RawTrendPointSerializer,
     ResearchFilterSerializer,
+    RiskDistributionQuerySerializer,
+    RiskDistributionSerializer,
+)
+from research.services.alert_summary import (
+    calculate_alert_summary,
+)
+from research.services.arkl_export import (
+    export_arkl_csv,
 )
 from research.services.arkl_results import (
     ARKLResearchFilters,
     get_arkl_research_results,
+)
+from research.services.exposure_summary import (
+    calculate_exposure_summary,
 )
 from research.services.h2s_summary import (
     calculate_h2s_summary,
@@ -24,31 +44,31 @@ from research.services.h2s_trends import (
     TrendInterval,
     get_h2s_trend,
 )
-
-from research.serializers import (
-    AlertSummarySerializer,
-    ExposureSummarySerializer,
-    RiskDistributionQuerySerializer,
-    RiskDistributionSerializer,
-)
-from research.services.alert_summary import (
-    calculate_alert_summary,
-)
-from research.services.exposure_summary import (
-    calculate_exposure_summary,
-)
 from research.services.risk_distribution import (
     calculate_risk_distribution,
 )
 
-from django.http import HttpResponse
 
-from research.services.arkl_export import (
-    export_arkl_csv,
-)
+class ResearchReadOnlyAPIView(APIView):
+    """
+    Base class for Research endpoints.
+
+    ADMIN / OPERATOR / RESEARCHER:
+        authenticated read access.
+
+    WORKER:
+        denied.
+    """
+
+    permission_classes = [
+        IsAuthenticated,
+        ResearchReadOnly,
+    ]
 
 
-class H2SSummaryView(APIView):
+class H2SSummaryView(
+    ResearchReadOnlyAPIView
+):
     @extend_schema(
         parameters=[
             ResearchFilterSerializer,
@@ -57,7 +77,10 @@ class H2SSummaryView(APIView):
             200: H2SSummarySerializer,
         },
     )
-    def get(self, request):
+    def get(
+        self,
+        request,
+    ):
         query_serializer = (
             ResearchFilterSerializer(
                 data=request.query_params
@@ -68,14 +91,18 @@ class H2SSummaryView(APIView):
             raise_exception=True
         )
 
-        filters = query_serializer.to_filters()
+        filters = (
+            query_serializer.to_filters()
+        )
 
         summary = calculate_h2s_summary(
             filters=filters
         )
 
         response_serializer = (
-            H2SSummarySerializer(summary)
+            H2SSummarySerializer(
+                summary
+            )
         )
 
         return Response(
@@ -84,7 +111,9 @@ class H2SSummaryView(APIView):
         )
 
 
-class H2STrendView(APIView):
+class H2STrendView(
+    ResearchReadOnlyAPIView
+):
     @extend_schema(
         parameters=[
             H2STrendQuerySerializer,
@@ -93,7 +122,10 @@ class H2STrendView(APIView):
             200: H2STrendResponseSerializer,
         },
     )
-    def get(self, request):
+    def get(
+        self,
+        request,
+    ):
         query_serializer = (
             H2STrendQuerySerializer(
                 data=request.query_params
@@ -104,7 +136,9 @@ class H2STrendView(APIView):
             raise_exception=True
         )
 
-        filters = query_serializer.to_filters()
+        filters = (
+            query_serializer.to_filters()
+        )
 
         interval = TrendInterval(
             query_serializer.validated_data[
@@ -149,7 +183,9 @@ class H2STrendView(APIView):
         )
 
 
-class ARKLResearchResultView(APIView):
+class ARKLResearchResultView(
+    ResearchReadOnlyAPIView
+):
     @extend_schema(
         parameters=[
             ARKLResearchQuerySerializer,
@@ -158,7 +194,10 @@ class ARKLResearchResultView(APIView):
             200: ARKLResearchResponseSerializer,
         },
     )
-    def get(self, request):
+    def get(
+        self,
+        request,
+    ):
         query_serializer = (
             ARKLResearchQuerySerializer(
                 data=request.query_params
@@ -169,7 +208,9 @@ class ARKLResearchResultView(APIView):
             raise_exception=True
         )
 
-        data = query_serializer.validated_data
+        data = (
+            query_serializer.validated_data
+        )
 
         filters = ARKLResearchFilters(
             calculation_version=(
@@ -205,7 +246,10 @@ class ARKLResearchResultView(APIView):
             status=status.HTTP_200_OK,
         )
 
-class RiskDistributionView(APIView):
+
+class RiskDistributionView(
+    ResearchReadOnlyAPIView
+):
     @extend_schema(
         parameters=[
             RiskDistributionQuerySerializer,
@@ -214,7 +258,10 @@ class RiskDistributionView(APIView):
             200: RiskDistributionSerializer,
         },
     )
-    def get(self, request):
+    def get(
+        self,
+        request,
+    ):
         query_serializer = (
             RiskDistributionQuerySerializer(
                 data=request.query_params
@@ -225,7 +272,9 @@ class RiskDistributionView(APIView):
             raise_exception=True
         )
 
-        data = query_serializer.validated_data
+        data = (
+            query_serializer.validated_data
+        )
 
         result = calculate_risk_distribution(
             calculation_version=(
@@ -251,13 +300,18 @@ class RiskDistributionView(APIView):
         )
 
 
-class ExposureSummaryView(APIView):
+class ExposureSummaryView(
+    ResearchReadOnlyAPIView
+):
     @extend_schema(
         responses={
             200: ExposureSummarySerializer,
         },
     )
-    def get(self, request):
+    def get(
+        self,
+        request,
+    ):
         summary = (
             calculate_exposure_summary()
         )
@@ -274,13 +328,18 @@ class ExposureSummaryView(APIView):
         )
 
 
-class AlertSummaryView(APIView):
+class AlertSummaryView(
+    ResearchReadOnlyAPIView
+):
     @extend_schema(
         responses={
             200: AlertSummarySerializer,
         },
     )
-    def get(self, request):
+    def get(
+        self,
+        request,
+    ):
         summary = (
             calculate_alert_summary()
         )
@@ -296,7 +355,10 @@ class AlertSummaryView(APIView):
             status=status.HTTP_200_OK,
         )
 
-class ARKLExportCSVView(APIView):
+
+class ARKLExportCSVView(
+    ResearchReadOnlyAPIView
+):
     @extend_schema(
         parameters=[
             ARKLResearchQuerySerializer,
@@ -308,7 +370,10 @@ class ARKLExportCSVView(APIView):
             },
         },
     )
-    def get(self, request):
+    def get(
+        self,
+        request,
+    ):
         query_serializer = (
             ARKLResearchQuerySerializer(
                 data=request.query_params
@@ -319,7 +384,9 @@ class ARKLExportCSVView(APIView):
             raise_exception=True
         )
 
-        data = query_serializer.validated_data
+        data = (
+            query_serializer.validated_data
+        )
 
         filters = ARKLResearchFilters(
             calculation_version=(
@@ -349,20 +416,16 @@ class ARKLExportCSVView(APIView):
             ),
         )
 
-        version = data[
-            "calculation_version"
-        ].replace(
-            ".",
-            "_",
-        ).replace(
-            "-",
-            "_",
+        version = (
+            data["calculation_version"]
+            .replace(".", "_")
+            .replace("-", "_")
         )
 
         response[
             "Content-Disposition"
         ] = (
-            'attachment; '
+            "attachment; "
             f'filename="arkl_results_{version}.csv"'
         )
 

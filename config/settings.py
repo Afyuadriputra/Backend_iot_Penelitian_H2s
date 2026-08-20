@@ -15,20 +15,28 @@ ALLOWED_HOSTS = [
 ]
 
 INSTALLED_APPS = [
+    # Django
     "django.contrib.admin",
     "django.contrib.auth",
     "django.contrib.contenttypes",
     "django.contrib.sessions",
     "django.contrib.messages",
     "django.contrib.staticfiles",
+
+    # Third party
     "rest_framework",
+    "rest_framework.authtoken",
     "corsheaders",
     "drf_spectacular",
+
+    # Project
+    "core",
     "devices",
     "exposure",
     "arkl",
     "alerts",
     "research",
+    "accounts",
 ]
 
 MIDDLEWARE = [
@@ -100,6 +108,18 @@ REST_FRAMEWORK = {
     "DEFAULT_SCHEMA_CLASS": ("drf_spectacular.openapi.AutoSchema"),
     "DEFAULT_PAGINATION_CLASS": ("rest_framework.pagination.PageNumberPagination"),
     "PAGE_SIZE": 50,
+
+        "DEFAULT_AUTHENTICATION_CLASSES": [
+        (
+            "rest_framework.authentication."
+            "TokenAuthentication"
+        ),
+        (
+            "rest_framework.authentication."
+            "SessionAuthentication"
+        ),
+    ],
+
 }
 
 SLOW_REQUEST_THRESHOLD_MS = 500

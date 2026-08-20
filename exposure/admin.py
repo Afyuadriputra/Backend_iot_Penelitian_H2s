@@ -1,24 +1,36 @@
 from django.contrib import admin
 
-from exposure.models import ExposureProfile, Worker
+from exposure.models import (
+    ExposureProfile,
+    Worker,
+)
 
 
 @admin.register(Worker)
 class WorkerAdmin(admin.ModelAdmin):
     list_display = (
         "code",
+        "name",
+        "age",
         "is_active",
         "created_at",
         "updated_at",
     )
 
-    search_fields = ("code",)
+    search_fields = (
+        "code",
+        "name",
+    )
 
-    list_filter = ("is_active",)
+    list_filter = (
+        "is_active",
+    )
 
 
 @admin.register(ExposureProfile)
-class ExposureProfileAdmin(admin.ModelAdmin):
+class ExposureProfileAdmin(
+    admin.ModelAdmin
+):
     list_display = (
         "worker",
         "body_weight",
@@ -29,4 +41,7 @@ class ExposureProfileAdmin(admin.ModelAdmin):
         "updated_at",
     )
 
-    search_fields = ("worker__code",)
+    search_fields = (
+        "worker__code",
+        "worker__name",
+    )

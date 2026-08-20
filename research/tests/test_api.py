@@ -1,8 +1,11 @@
-import pytest
-from rest_framework.test import APIClient
-
 from decimal import Decimal
 
+import pytest
+from django.contrib.auth import get_user_model
+from rest_framework.authtoken.models import Token
+from rest_framework.test import APIClient
+
+from accounts.models import AccountProfile
 from arkl.models import ARKLResult
 from arkl.services.constants import (
     ARKL_CALCULATION_VERSION,
@@ -10,10 +13,34 @@ from arkl.services.constants import (
 from exposure.models import Worker
 
 
+User = get_user_model()
+
+
 @pytest.fixture
 def api_client():
-    return APIClient()
+    user = User.objects.create_user(
+        username="research-api-user",
+        password="StrongPass123!",
+    )
 
+    AccountProfile.objects.create(
+        user=user,
+        role=AccountProfile.Role.RESEARCHER,
+    )
+
+    token = Token.objects.create(
+        user=user,
+    )
+
+    client = APIClient()
+
+    client.credentials(
+        HTTP_AUTHORIZATION=(
+            f"Token {token.key}"
+        )
+    )
+
+    return client
 
 # ============================================================
 # H2S SUMMARY
@@ -639,3 +666,51 @@ def test_arkl_csv_export_defaults_to_current_version(
         "2_0_0_MVP"
         in response["Content-Disposition"]
     )
+
+@pytest.mark.django_db
+def test_research_api_rejects_anonymous():
+    client = APIClient()
+
+    response = client.get(
+        "/api/v1/research/h2s-summary/"
+    )
+
+    assert response.status_code == 401
+
+
+@pytest.mark.django_db
+def test_worker_cannot_access_research_api():
+    worker = Worker.objects.create(
+        code="PML-RESEARCH-DENIED",
+        name="Worker Research Test",
+        age=40,
+    )
+
+    user = User.objects.create_user(
+        username="research-worker",
+        password="StrongPass123!",
+    )
+
+    AccountProfile.objects.create(
+        user=user,
+        role=AccountProfile.Role.WORKER,
+        worker=worker,
+    )
+
+    token = Token.objects.create(
+        user=user,
+    )
+
+    client = APIClient()
+
+    client.credentials(
+        HTTP_AUTHORIZATION=(
+            f"Token {token.key}"
+        )
+    )
+
+    response = client.get(
+        "/api/v1/research/h2s-summary/"
+    )
+
+    assert response.status_code == 403

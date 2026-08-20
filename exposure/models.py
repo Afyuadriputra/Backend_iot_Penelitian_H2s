@@ -1,4 +1,7 @@
-from django.core.validators import MinValueValidator
+from django.core.validators import (
+    MaxValueValidator,
+    MinValueValidator,
+)
 from django.db import models
 
 
@@ -7,6 +10,31 @@ class Worker(models.Model):
         max_length=50,
         unique=True,
         db_index=True,
+    )
+
+    # Nullable temporarily for backward compatibility with
+    # existing historical/test Worker records.
+    #
+    # New Worker creation through the REST API requires
+    # both name and age in WorkerSerializer.
+    name = models.CharField(
+        max_length=150,
+        null=True,
+        blank=True,
+        help_text="Nama pemulung/responden.",
+    )
+
+    age = models.PositiveSmallIntegerField(
+        null=True,
+        blank=True,
+        validators=[
+            MinValueValidator(1),
+            MaxValueValidator(120),
+        ],
+        help_text=(
+            "Usia pemulung/responden dalam tahun. "
+            "Usia bukan parameter langsung rumus ARKL."
+        ),
     )
 
     is_active = models.BooleanField(
@@ -25,6 +53,9 @@ class Worker(models.Model):
         ordering = ["code"]
 
     def __str__(self):
+        if self.name:
+            return f"{self.code} - {self.name}"
+
         return self.code
 
 
@@ -35,29 +66,58 @@ class ExposureProfile(models.Model):
         related_name="exposure_profile",
     )
 
+    # Wb
     body_weight = models.FloatField(
-        validators=[MinValueValidator(0.01)],
-        help_text="Berat badan dalam kilogram.",
+        validators=[
+            MinValueValidator(0.01),
+        ],
+        help_text=(
+            "Berat badan (Wb) dalam kilogram."
+        ),
     )
 
+    # tE
     exposure_time = models.FloatField(
-        validators=[MinValueValidator(0)],
-        help_text="Waktu pajanan. Satuan final mengikuti metode ARKL.",
+        validators=[
+            MinValueValidator(0.01),
+            MaxValueValidator(24),
+        ],
+        help_text=(
+            "Waktu pajanan (tE) dalam jam/hari."
+        ),
     )
 
+    # fE
     exposure_frequency = models.FloatField(
-        validators=[MinValueValidator(0)],
-        help_text="Frekuensi pajanan. Satuan final mengikuti metode ARKL.",
+        validators=[
+            MinValueValidator(0.01),
+            MaxValueValidator(365),
+        ],
+        help_text=(
+            "Frekuensi pajanan (fE) dalam hari/tahun."
+        ),
     )
 
+    # Dt
     exposure_duration = models.FloatField(
-        validators=[MinValueValidator(0)],
-        help_text="Durasi pajanan. Satuan final mengikuti metode ARKL.",
+        validators=[
+            MinValueValidator(0.01),
+        ],
+        help_text=(
+            "Durasi pajanan (Dt) dalam tahun."
+        ),
     )
 
+    # R
     inhalation_rate = models.FloatField(
-        validators=[MinValueValidator(0)],
-        help_text="Laju inhalasi. Satuan final mengikuti metode ARKL.",
+        validators=[
+            MinValueValidator(0.01),
+        ],
+        help_text=(
+            "Laju inhalasi (R) dalam m³/jam. "
+            "Nilai harus mengikuti metodologi "
+            "ARKL yang disetujui."
+        ),
     )
 
     created_at = models.DateTimeField(
@@ -69,4 +129,7 @@ class ExposureProfile(models.Model):
     )
 
     def __str__(self):
-        return f"Exposure Profile - {self.worker.code}"
+        return (
+            f"Exposure Profile - "
+            f"{self.worker.code}"
+        )
