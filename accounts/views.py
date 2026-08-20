@@ -23,6 +23,7 @@ from accounts.serializers import (
     AccountCreateSerializer,
     AccountProfileSerializer,
     CurrentUserSerializer,
+    LoginResponseSerializer,
     LoginSerializer,
     MyExposureProfileSerializer,
     MyWorkerProfileSerializer,
@@ -34,6 +35,50 @@ from arkl.serializers import ARKLResultSerializer
 from exposure.models import ExposureProfile
 
 
+def build_current_user_data(user):
+    """
+    Build the authenticated user's public application identity.
+
+    This helper is intentionally presentation-only and does not
+    perform authorization decisions.
+    """
+    role = get_user_role(user)
+
+    profile = getattr(
+        user,
+        "account_profile",
+        None,
+    )
+
+    worker = (
+        profile.worker
+        if profile is not None
+        else None
+    )
+
+    return {
+        "id": user.id,
+        "username": user.username,
+        "email": user.email,
+        "role": role,
+        "worker_id": (
+            worker.id
+            if worker
+            else None
+        ),
+        "worker_code": (
+            worker.code
+            if worker
+            else None
+        ),
+        "worker_name": (
+            worker.name
+            if worker
+            else None
+        ),
+    }
+
+
 class LoginView(APIView):
     permission_classes = [
         AllowAny,
@@ -41,6 +86,9 @@ class LoginView(APIView):
 
     @extend_schema(
         request=LoginSerializer,
+        responses={
+            200: LoginResponseSerializer,
+        },
     )
     def post(self, request):
         serializer = LoginSerializer(
@@ -75,43 +123,21 @@ class LoginView(APIView):
             user=user
         )
 
-        profile = getattr(
-            user,
-            "account_profile",
-            None,
+        user_data = build_current_user_data(
+            user
         )
 
-        worker = (
-            profile.worker
-            if profile is not None
-            else None
+        response_serializer = (
+            LoginResponseSerializer(
+                {
+                    "token": token.key,
+                    "user": user_data,
+                }
+            )
         )
 
         return Response(
-            {
-                "token": token.key,
-                "user": {
-                    "id": user.id,
-                    "username": user.username,
-                    "email": user.email,
-                    "role": role,
-                    "worker_id": (
-                        worker.id
-                        if worker
-                        else None
-                    ),
-                    "worker_code": (
-                        worker.code
-                        if worker
-                        else None
-                    ),
-                    "worker_name": (
-                        worker.name
-                        if worker
-                        else None
-                    ),
-                },
-            },
+            response_serializer.data,
             status=status.HTTP_200_OK,
         )
 
@@ -121,6 +147,12 @@ class LogoutView(APIView):
         IsAuthenticated,
     ]
 
+    @extend_schema(
+        request=None,
+        responses={
+            204: None,
+        },
+    )
     def post(self, request):
         Token.objects.filter(
             user=request.user
@@ -143,43 +175,9 @@ class CurrentUserView(APIView):
         },
     )
     def get(self, request):
-        user = request.user
-
-        role = get_user_role(user)
-
-        profile = getattr(
-            user,
-            "account_profile",
-            None,
+        data = build_current_user_data(
+            request.user
         )
-
-        worker = (
-            profile.worker
-            if profile is not None
-            else None
-        )
-
-        data = {
-            "id": user.id,
-            "username": user.username,
-            "email": user.email,
-            "role": role,
-            "worker_id": (
-                worker.id
-                if worker
-                else None
-            ),
-            "worker_code": (
-                worker.code
-                if worker
-                else None
-            ),
-            "worker_name": (
-                worker.name
-                if worker
-                else None
-            ),
-        }
 
         serializer = CurrentUserSerializer(
             data
@@ -445,6 +443,8 @@ class MyAlertListView(
                 "device",
                 "reading",
                 "arkl_result",
+                "acknowledged_by",
+                "resolved_by",
             )
             .order_by(
                 "-created_at",

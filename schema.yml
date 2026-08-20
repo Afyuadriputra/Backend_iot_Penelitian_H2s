@@ -126,8 +126,8 @@ paths:
       tags:
       - schema
       security:
+      - tokenAuth: []
       - cookieAuth: []
-      - basicAuth: []
       - {}
       responses:
         '200':
@@ -148,6 +148,33 @@ paths:
               schema:
                 type: object
                 additionalProperties: {}
+          description: ''
+  /api/v1/accounts/:
+    post:
+      operationId: v1_accounts_create
+      tags:
+      - v1
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AccountCreate'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/AccountCreate'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/AccountCreate'
+        required: true
+      security:
+      - tokenAuth: []
+      - cookieAuth: []
+      responses:
+        '201':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AccountProfile'
           description: ''
   /api/v1/alerts/:
     get:
@@ -178,9 +205,8 @@ paths:
       tags:
       - v1
       security:
+      - tokenAuth: []
       - cookieAuth: []
-      - basicAuth: []
-      - {}
       responses:
         '200':
           content:
@@ -200,9 +226,8 @@ paths:
       tags:
       - v1
       security:
+      - tokenAuth: []
       - cookieAuth: []
-      - basicAuth: []
-      - {}
       responses:
         '200':
           content:
@@ -222,9 +247,8 @@ paths:
       tags:
       - v1
       security:
+      - tokenAuth: []
       - cookieAuth: []
-      - basicAuth: []
-      - {}
       responses:
         '200':
           content:
@@ -244,9 +268,8 @@ paths:
       tags:
       - v1
       security:
+      - tokenAuth: []
       - cookieAuth: []
-      - basicAuth: []
-      - {}
       responses:
         '200':
           content:
@@ -272,9 +295,8 @@ paths:
               $ref: '#/components/schemas/AlertEvaluateRequest'
         required: true
       security:
+      - tokenAuth: []
       - cookieAuth: []
-      - basicAuth: []
-      - {}
       responses:
         '200':
           content:
@@ -307,9 +329,8 @@ paths:
               $ref: '#/components/schemas/HistoricalARKLRequest'
         required: true
       security:
+      - tokenAuth: []
       - cookieAuth: []
-      - basicAuth: []
-      - {}
       responses:
         '201':
           content:
@@ -336,9 +357,8 @@ paths:
               $ref: '#/components/schemas/RealtimeARKLRequest'
         required: true
       security:
+      - tokenAuth: []
       - cookieAuth: []
-      - basicAuth: []
-      - {}
       responses:
         '201':
           content:
@@ -360,9 +380,8 @@ paths:
       tags:
       - ARKL
       security:
+      - tokenAuth: []
       - cookieAuth: []
-      - basicAuth: []
-      - {}
       responses:
         '200':
           content:
@@ -383,15 +402,68 @@ paths:
       tags:
       - ARKL
       security:
+      - tokenAuth: []
       - cookieAuth: []
-      - basicAuth: []
-      - {}
       responses:
         '200':
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/ARKLResult'
+          description: ''
+  /api/v1/auth/login/:
+    post:
+      operationId: v1_auth_login_create
+      tags:
+      - v1
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Login'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/Login'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/Login'
+        required: true
+      security:
+      - tokenAuth: []
+      - cookieAuth: []
+      - {}
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LoginResponse'
+          description: ''
+  /api/v1/auth/logout/:
+    post:
+      operationId: v1_auth_logout_create
+      tags:
+      - v1
+      security:
+      - tokenAuth: []
+      - cookieAuth: []
+      responses:
+        '204':
+          description: No response body
+  /api/v1/auth/me/:
+    get:
+      operationId: v1_auth_me_retrieve
+      tags:
+      - v1
+      security:
+      - tokenAuth: []
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CurrentUser'
           description: ''
   /api/v1/devices/:
     get:
@@ -406,9 +478,8 @@ paths:
       tags:
       - v1
       security:
+      - tokenAuth: []
       - cookieAuth: []
-      - basicAuth: []
-      - {}
       responses:
         '200':
           content:
@@ -429,9 +500,8 @@ paths:
       tags:
       - v1
       security:
+      - tokenAuth: []
       - cookieAuth: []
-      - basicAuth: []
-      - {}
       responses:
         '200':
           content:
@@ -452,9 +522,8 @@ paths:
       tags:
       - v1
       security:
+      - tokenAuth: []
       - cookieAuth: []
-      - basicAuth: []
-      - {}
       responses:
         '200':
           content:
@@ -479,9 +548,8 @@ paths:
               $ref: '#/components/schemas/ExposureProfile'
         required: true
       security:
+      - tokenAuth: []
       - cookieAuth: []
-      - basicAuth: []
-      - {}
       responses:
         '201':
           content:
@@ -502,9 +570,8 @@ paths:
       tags:
       - v1
       security:
+      - tokenAuth: []
       - cookieAuth: []
-      - basicAuth: []
-      - {}
       responses:
         '200':
           content:
@@ -535,15 +602,128 @@ paths:
             schema:
               $ref: '#/components/schemas/PatchedExposureProfile'
       security:
+      - tokenAuth: []
       - cookieAuth: []
-      - basicAuth: []
-      - {}
       responses:
         '200':
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/ExposureProfile'
+          description: ''
+  /api/v1/me/alerts/:
+    get:
+      operationId: v1_me_alerts_list
+      tags:
+      - v1
+      security:
+      - tokenAuth: []
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Alert'
+          description: ''
+  /api/v1/me/arkl-results/:
+    get:
+      operationId: v1_me_arkl_results_list
+      tags:
+      - v1
+      security:
+      - tokenAuth: []
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/ARKLResult'
+          description: ''
+  /api/v1/me/exposure/:
+    get:
+      operationId: v1_me_exposure_retrieve
+      tags:
+      - v1
+      security:
+      - tokenAuth: []
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MyExposureProfile'
+          description: ''
+    patch:
+      operationId: v1_me_exposure_partial_update
+      tags:
+      - v1
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PatchedMyExposureProfile'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/PatchedMyExposureProfile'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/PatchedMyExposureProfile'
+      security:
+      - tokenAuth: []
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MyExposureProfile'
+          description: ''
+  /api/v1/me/profile/:
+    get:
+      operationId: v1_me_profile_retrieve
+      tags:
+      - v1
+      security:
+      - tokenAuth: []
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MyWorkerProfile'
+          description: ''
+    patch:
+      operationId: v1_me_profile_partial_update
+      tags:
+      - v1
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PatchedMyWorkerProfile'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/PatchedMyWorkerProfile'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/PatchedMyWorkerProfile'
+      security:
+      - tokenAuth: []
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MyWorkerProfile'
           description: ''
   /api/v1/readings/:
     get:
@@ -558,9 +738,8 @@ paths:
       tags:
       - v1
       security:
+      - tokenAuth: []
       - cookieAuth: []
-      - basicAuth: []
-      - {}
       responses:
         '200':
           content:
@@ -581,9 +760,8 @@ paths:
       tags:
       - v1
       security:
+      - tokenAuth: []
       - cookieAuth: []
-      - basicAuth: []
-      - {}
       responses:
         '200':
           content:
@@ -597,9 +775,8 @@ paths:
       tags:
       - v1
       security:
+      - tokenAuth: []
       - cookieAuth: []
-      - basicAuth: []
-      - {}
       responses:
         '200':
           content:
@@ -610,12 +787,19 @@ paths:
   /api/v1/research/alert-summary/:
     get:
       operationId: v1_research_alert_summary_retrieve
+      description: |-
+        Base class for Research endpoints.
+
+        ADMIN / OPERATOR / RESEARCHER:
+            authenticated read access.
+
+        WORKER:
+            denied.
       tags:
       - v1
       security:
+      - tokenAuth: []
       - cookieAuth: []
-      - basicAuth: []
-      - {}
       responses:
         '200':
           content:
@@ -626,6 +810,14 @@ paths:
   /api/v1/research/arkl-results/:
     get:
       operationId: v1_research_arkl_results_retrieve
+      description: |-
+        Base class for Research endpoints.
+
+        ADMIN / OPERATOR / RESEARCHER:
+            authenticated read access.
+
+        WORKER:
+            denied.
       parameters:
       - in: query
         name: calculation_type
@@ -667,9 +859,8 @@ paths:
       tags:
       - v1
       security:
+      - tokenAuth: []
       - cookieAuth: []
-      - basicAuth: []
-      - {}
       responses:
         '200':
           content:
@@ -680,6 +871,14 @@ paths:
   /api/v1/research/export/arkl.csv:
     get:
       operationId: v1_research_export_arkl.csv_retrieve
+      description: |-
+        Base class for Research endpoints.
+
+        ADMIN / OPERATOR / RESEARCHER:
+            authenticated read access.
+
+        WORKER:
+            denied.
       parameters:
       - in: query
         name: calculation_type
@@ -721,9 +920,8 @@ paths:
       tags:
       - v1
       security:
+      - tokenAuth: []
       - cookieAuth: []
-      - basicAuth: []
-      - {}
       responses:
         '200':
           content:
@@ -735,12 +933,19 @@ paths:
   /api/v1/research/exposure-summary/:
     get:
       operationId: v1_research_exposure_summary_retrieve
+      description: |-
+        Base class for Research endpoints.
+
+        ADMIN / OPERATOR / RESEARCHER:
+            authenticated read access.
+
+        WORKER:
+            denied.
       tags:
       - v1
       security:
+      - tokenAuth: []
       - cookieAuth: []
-      - basicAuth: []
-      - {}
       responses:
         '200':
           content:
@@ -751,6 +956,14 @@ paths:
   /api/v1/research/h2s-summary/:
     get:
       operationId: v1_research_h2s_summary_retrieve
+      description: |-
+        Base class for Research endpoints.
+
+        ADMIN / OPERATOR / RESEARCHER:
+            authenticated read access.
+
+        WORKER:
+            denied.
       parameters:
       - in: query
         name: device_code
@@ -775,9 +988,8 @@ paths:
       tags:
       - v1
       security:
+      - tokenAuth: []
       - cookieAuth: []
-      - basicAuth: []
-      - {}
       responses:
         '200':
           content:
@@ -788,6 +1000,14 @@ paths:
   /api/v1/research/h2s-trends/:
     get:
       operationId: v1_research_h2s_trends_retrieve
+      description: |-
+        Base class for Research endpoints.
+
+        ADMIN / OPERATOR / RESEARCHER:
+            authenticated read access.
+
+        WORKER:
+            denied.
       parameters:
       - in: query
         name: device_code
@@ -826,9 +1046,8 @@ paths:
       tags:
       - v1
       security:
+      - tokenAuth: []
       - cookieAuth: []
-      - basicAuth: []
-      - {}
       responses:
         '200':
           content:
@@ -839,6 +1058,14 @@ paths:
   /api/v1/research/risk-distribution/:
     get:
       operationId: v1_research_risk_distribution_retrieve
+      description: |-
+        Base class for Research endpoints.
+
+        ADMIN / OPERATOR / RESEARCHER:
+            authenticated read access.
+
+        WORKER:
+            denied.
       parameters:
       - in: query
         name: calculation_version
@@ -859,9 +1086,8 @@ paths:
       tags:
       - v1
       security:
+      - tokenAuth: []
       - cookieAuth: []
-      - basicAuth: []
-      - {}
       responses:
         '200':
           content:
@@ -882,9 +1108,8 @@ paths:
       tags:
       - v1
       security:
+      - tokenAuth: []
       - cookieAuth: []
-      - basicAuth: []
-      - {}
       responses:
         '200':
           content:
@@ -909,9 +1134,8 @@ paths:
               $ref: '#/components/schemas/Worker'
         required: true
       security:
+      - tokenAuth: []
       - cookieAuth: []
-      - basicAuth: []
-      - {}
       responses:
         '201':
           content:
@@ -932,9 +1156,8 @@ paths:
       tags:
       - v1
       security:
+      - tokenAuth: []
       - cookieAuth: []
-      - basicAuth: []
-      - {}
       responses:
         '200':
           content:
@@ -1181,6 +1404,79 @@ components:
       - source_simulated
       - worker
       - worker_code
+    AccountCreate:
+      type: object
+      properties:
+        username:
+          type: string
+          maxLength: 150
+        email:
+          oneOf:
+          - type: string
+            format: email
+            default: ''
+          - type: string
+            maxLength: 0
+        password:
+          type: string
+          writeOnly: true
+          minLength: 8
+        role:
+          $ref: '#/components/schemas/RoleEnum'
+        worker_id:
+          type: integer
+          nullable: true
+      required:
+      - password
+      - role
+      - username
+    AccountProfile:
+      type: object
+      properties:
+        id:
+          type: integer
+          readOnly: true
+        username:
+          type: string
+          readOnly: true
+        email:
+          type: string
+          format: email
+          readOnly: true
+        role:
+          allOf:
+          - $ref: '#/components/schemas/RoleEnum'
+          readOnly: true
+        worker:
+          type: integer
+          readOnly: true
+          nullable: true
+        worker_code:
+          type: string
+          readOnly: true
+          nullable: true
+        worker_name:
+          type: string
+          readOnly: true
+          nullable: true
+        created_at:
+          type: string
+          format: date-time
+          readOnly: true
+        updated_at:
+          type: string
+          format: date-time
+          readOnly: true
+      required:
+      - created_at
+      - email
+      - id
+      - role
+      - updated_at
+      - username
+      - worker
+      - worker_code
+      - worker_name
     Alert:
       type: object
       properties:
@@ -1250,9 +1546,25 @@ components:
           format: date-time
           readOnly: true
           nullable: true
+        acknowledged_by:
+          type: integer
+          readOnly: true
+          nullable: true
+        acknowledged_by_username:
+          type: string
+          readOnly: true
+          nullable: true
         resolved_at:
           type: string
           format: date-time
+          readOnly: true
+          nullable: true
+        resolved_by:
+          type: integer
+          readOnly: true
+          nullable: true
+        resolved_by_username:
+          type: string
           readOnly: true
           nullable: true
         created_at:
@@ -1265,6 +1577,8 @@ components:
           readOnly: true
       required:
       - acknowledged_at
+      - acknowledged_by
+      - acknowledged_by_username
       - alert_level
       - alert_rule_version
       - arkl_result_id
@@ -1279,6 +1593,8 @@ components:
       - reading_id
       - recommendation_codes
       - resolved_at
+      - resolved_by
+      - resolved_by_username
       - risk_interpretation
       - risk_status
       - rq
@@ -1376,6 +1692,38 @@ components:
       required:
       - count
       - value
+    CurrentUser:
+      type: object
+      properties:
+        id:
+          type: integer
+        username:
+          type: string
+        email:
+          oneOf:
+          - type: string
+            format: email
+          - type: string
+            maxLength: 0
+        role:
+          type: string
+        worker_id:
+          type: integer
+          nullable: true
+        worker_code:
+          type: string
+          nullable: true
+        worker_name:
+          type: string
+          nullable: true
+      required:
+      - email
+      - id
+      - role
+      - username
+      - worker_code
+      - worker_id
+      - worker_name
     Device:
       type: object
       properties:
@@ -1431,31 +1779,38 @@ components:
         worker_code:
           type: string
           readOnly: true
+        worker_name:
+          type: string
+          readOnly: true
+          nullable: true
         body_weight:
           type: number
           format: double
           minimum: 0.01
-          description: Berat badan dalam kilogram.
+          description: Berat badan (Wb) dalam kilogram.
         exposure_time:
           type: number
           format: double
-          minimum: 0
-          description: Waktu pajanan. Satuan final mengikuti metode ARKL.
+          maximum: 24
+          minimum: 0.01
+          description: Waktu pajanan (tE) dalam jam/hari.
         exposure_frequency:
           type: number
           format: double
-          minimum: 0
-          description: Frekuensi pajanan. Satuan final mengikuti metode ARKL.
+          maximum: 365
+          minimum: 0.01
+          description: Frekuensi pajanan (fE) dalam hari/tahun.
         exposure_duration:
           type: number
           format: double
-          minimum: 0
-          description: Durasi pajanan. Satuan final mengikuti metode ARKL.
+          minimum: 0.01
+          description: Durasi pajanan (Dt) dalam tahun.
         inhalation_rate:
           type: number
           format: double
-          minimum: 0
-          description: Laju inhalasi. Satuan final mengikuti metode ARKL.
+          minimum: 0.01
+          description: Laju inhalasi (R) dalam m³/jam. Nilai harus mengikuti metodologi
+            ARKL yang disetujui.
         created_at:
           type: string
           format: date-time
@@ -1475,6 +1830,7 @@ components:
       - updated_at
       - worker
       - worker_code
+      - worker_name
     ExposureSummary:
       type: object
       properties:
@@ -1638,6 +1994,118 @@ components:
         * `raw` - raw
         * `hour` - hour
         * `day` - day
+    Login:
+      type: object
+      properties:
+        username:
+          type: string
+        password:
+          type: string
+          writeOnly: true
+      required:
+      - password
+      - username
+    LoginResponse:
+      type: object
+      properties:
+        token:
+          type: string
+        user:
+          $ref: '#/components/schemas/CurrentUser'
+      required:
+      - token
+      - user
+    MyExposureProfile:
+      type: object
+      properties:
+        id:
+          type: integer
+          readOnly: true
+        worker_code:
+          type: string
+          readOnly: true
+        worker_name:
+          type: string
+          readOnly: true
+          nullable: true
+        body_weight:
+          type: number
+          format: double
+          minimum: 0.01
+          description: Berat badan (Wb) dalam kilogram.
+        exposure_time:
+          type: number
+          format: double
+          maximum: 24
+          minimum: 0.01
+          description: Waktu pajanan (tE) dalam jam/hari.
+        exposure_frequency:
+          type: number
+          format: double
+          maximum: 365
+          minimum: 0.01
+          description: Frekuensi pajanan (fE) dalam hari/tahun.
+        exposure_duration:
+          type: number
+          format: double
+          minimum: 0.01
+          description: Durasi pajanan (Dt) dalam tahun.
+        inhalation_rate:
+          type: number
+          format: double
+          readOnly: true
+        created_at:
+          type: string
+          format: date-time
+          readOnly: true
+        updated_at:
+          type: string
+          format: date-time
+          readOnly: true
+      required:
+      - body_weight
+      - created_at
+      - exposure_duration
+      - exposure_frequency
+      - exposure_time
+      - id
+      - inhalation_rate
+      - updated_at
+      - worker_code
+      - worker_name
+    MyWorkerProfile:
+      type: object
+      properties:
+        id:
+          type: integer
+          readOnly: true
+        code:
+          type: string
+          readOnly: true
+        name:
+          type: string
+          maxLength: 150
+        age:
+          type: integer
+          maximum: 120
+          minimum: 1
+        is_active:
+          type: boolean
+          readOnly: true
+        created_at:
+          type: string
+          format: date-time
+          readOnly: true
+        updated_at:
+          type: string
+          format: date-time
+          readOnly: true
+      required:
+      - code
+      - created_at
+      - id
+      - is_active
+      - updated_at
     PaginatedARKLResultList:
       type: object
       required:
@@ -1787,31 +2255,112 @@ components:
         worker_code:
           type: string
           readOnly: true
+        worker_name:
+          type: string
+          readOnly: true
+          nullable: true
         body_weight:
           type: number
           format: double
           minimum: 0.01
-          description: Berat badan dalam kilogram.
+          description: Berat badan (Wb) dalam kilogram.
         exposure_time:
           type: number
           format: double
-          minimum: 0
-          description: Waktu pajanan. Satuan final mengikuti metode ARKL.
+          maximum: 24
+          minimum: 0.01
+          description: Waktu pajanan (tE) dalam jam/hari.
         exposure_frequency:
           type: number
           format: double
-          minimum: 0
-          description: Frekuensi pajanan. Satuan final mengikuti metode ARKL.
+          maximum: 365
+          minimum: 0.01
+          description: Frekuensi pajanan (fE) dalam hari/tahun.
         exposure_duration:
           type: number
           format: double
-          minimum: 0
-          description: Durasi pajanan. Satuan final mengikuti metode ARKL.
+          minimum: 0.01
+          description: Durasi pajanan (Dt) dalam tahun.
         inhalation_rate:
           type: number
           format: double
-          minimum: 0
-          description: Laju inhalasi. Satuan final mengikuti metode ARKL.
+          minimum: 0.01
+          description: Laju inhalasi (R) dalam m³/jam. Nilai harus mengikuti metodologi
+            ARKL yang disetujui.
+        created_at:
+          type: string
+          format: date-time
+          readOnly: true
+        updated_at:
+          type: string
+          format: date-time
+          readOnly: true
+    PatchedMyExposureProfile:
+      type: object
+      properties:
+        id:
+          type: integer
+          readOnly: true
+        worker_code:
+          type: string
+          readOnly: true
+        worker_name:
+          type: string
+          readOnly: true
+          nullable: true
+        body_weight:
+          type: number
+          format: double
+          minimum: 0.01
+          description: Berat badan (Wb) dalam kilogram.
+        exposure_time:
+          type: number
+          format: double
+          maximum: 24
+          minimum: 0.01
+          description: Waktu pajanan (tE) dalam jam/hari.
+        exposure_frequency:
+          type: number
+          format: double
+          maximum: 365
+          minimum: 0.01
+          description: Frekuensi pajanan (fE) dalam hari/tahun.
+        exposure_duration:
+          type: number
+          format: double
+          minimum: 0.01
+          description: Durasi pajanan (Dt) dalam tahun.
+        inhalation_rate:
+          type: number
+          format: double
+          readOnly: true
+        created_at:
+          type: string
+          format: date-time
+          readOnly: true
+        updated_at:
+          type: string
+          format: date-time
+          readOnly: true
+    PatchedMyWorkerProfile:
+      type: object
+      properties:
+        id:
+          type: integer
+          readOnly: true
+        code:
+          type: string
+          readOnly: true
+        name:
+          type: string
+          maxLength: 150
+        age:
+          type: integer
+          maximum: 120
+          minimum: 1
+        is_active:
+          type: boolean
+          readOnly: true
         created_at:
           type: string
           format: date-time
@@ -1871,6 +2420,18 @@ components:
         * `MONITORING_REQUIRED` - MONITORING_REQUIRED
         * `RISK_MANAGEMENT_REQUIRED` - RISK_MANAGEMENT_REQUIRED
         * `IMMEDIATE_ACTION_REQUIRED` - IMMEDIATE_ACTION_REQUIRED
+    RoleEnum:
+      enum:
+      - ADMIN
+      - OPERATOR
+      - RESEARCHER
+      - WORKER
+      type: string
+      description: |-
+        * `ADMIN` - Admin
+        * `OPERATOR` - Operator
+        * `RESEARCHER` - Researcher
+        * `WORKER` - Worker
     StatusEnum:
       enum:
       - OPEN
@@ -1890,6 +2451,13 @@ components:
         code:
           type: string
           maxLength: 50
+        name:
+          type: string
+          maxLength: 150
+        age:
+          type: integer
+          maximum: 120
+          minimum: 1
         is_active:
           type: boolean
         created_at:
@@ -1901,15 +2469,19 @@ components:
           format: date-time
           readOnly: true
       required:
+      - age
       - code
       - created_at
       - id
+      - name
       - updated_at
   securitySchemes:
-    basicAuth:
-      type: http
-      scheme: basic
     cookieAuth:
       type: apiKey
       in: cookie
       name: sessionid
+    tokenAuth:
+      type: apiKey
+      in: header
+      name: Authorization
+      description: Token-based authentication with required prefix "Token"

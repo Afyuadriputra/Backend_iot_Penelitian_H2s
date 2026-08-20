@@ -265,6 +265,13 @@ class CurrentUserSerializer(
     )
 
 
+class LoginResponseSerializer(
+    serializers.Serializer
+):
+    token = serializers.CharField()
+
+    user = CurrentUserSerializer()
+
 class MyWorkerProfileSerializer(
     serializers.ModelSerializer
 ):

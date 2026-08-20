@@ -1,1746 +1,878 @@
-Anda bertindak sebagai Senior Software Architect + Backend Engineer + AI/Research System Auditor.
 
-Anda bertindak sebagai Senior Software Architect + Project Manager + Technical Documentation Engineer.
+Anda bertindak sebagai Senior Backend Engineer sekaligus API Integration Engineer.
 
-Repository:
+Saya akan mulai membangun frontend untuk project Django REST Framework ini.
 
+PROJECT ROOT:
 D:\Kuliah\joki\dosen\buk reni\projek\Backend
 
-TUGAS ANDA:
+TUJUAN UTAMA:
+Audit seluruh backend dan hasilkan API CONTRACT yang benar-benar dapat dijadikan
+sumber kebenaran oleh frontend React/Vite.
 
-Audit repository aktual lalu buat / perbarui SATU dokumen status proyek terbaru agar saya mudah mengetahui:
+JANGAN menebak API.
+JANGAN hanya percaya schema.yml.
+JANGAN mengubah business logic.
+JANGAN mengubah formula ARKL.
+JANGAN mengubah alert decision matrix.
+JANGAN menampilkan nilai .env, secret key, token, password, credential MQTT,
+atau secret lainnya.
 
-- proyek ini sebenarnya sedang berada di tahap mana;
-- layer mana yang selesai;
-- layer mana yang reopened;
-- layer mana yang paused;
-- task yang sudah selesai;
-- task yang belum selesai;
-- blocker;
-- technical debt;
-- keputusan scientific yang belum dikunci;
-- test / quality status;
-- endpoint yang sudah aktif;
-- endpoint yang belum aktif;
-- file yang sedang relevan;
-- urutan pekerjaan selanjutnya.
+============================================================
+PRINSIP SOURCE OF TRUTH
+=======================
 
-Dokumen ini akan menjadi "project handoff / source of truth" untuk melanjutkan development di chat atau agent lain.
+Gunakan prioritas berikut:
 
-==================================================
-IMPORTANT SOURCE OF TRUTH
+1. URL configuration aktual
+2. View / ViewSet aktual
+3. Serializer aktual
+4. Permission classes aktual
+5. Service/domain logic aktual
+6. Model dan enum aktual
+7. Automated tests aktual
+8. schema.yml
+
+Jika schema.yml berbeda dengan source code, laporkan sebagai API schema drift.
+
+Jangan menganggap dokumentasi lama lebih benar daripada source code.
+
+============================================================
+MODULE YANG WAJIB DIAUDIT
 =========================
 
-Prioritas kebenaran teknis:
-
-1. Repository aktual
-2. Migrations
-3. Tests
-4. Runtime configuration
-5. schema.yml
-6. Dokumentasi/catatan
-
-Jangan mempercayai status lama apabila bertentangan dengan repository aktual.
-
-Untuk keputusan ilmiah ARKL yang belum final:
-JANGAN menyimpulkan sendiri.
-Tandai sebagai:
-
-NEEDS SCIENTIFIC DECISION
-
-==================================================
-PROJECT CONTEXT
-===============
-
-Project adalah backend Django untuk:
-
-IoT H₂S Environmental Monitoring
-+
-Data & Exposure Management
-+
-Smart ARKL
-+
-Alert & Risk Management
-+
-Research & Reporting
-
-Target pengguna ke depan:
-
-ADMIN
-OPERATOR
-RESEARCHER
-WORKER / PEMULUNG
-
-Namun authentication/authorization belum menjadi core existing dan harus diaudit berdasarkan repository.
-
-Konsep layer:
-
-Layer 1 — IoT Environmental Monitoring
-Layer 2 — Data & Exposure Management
-Layer 3 — Smart ARKL
-Layer 4 — Alert & Risk Management
-Layer 5 — Research & Reporting
-
-==================================================
-CURRENT IMPORTANT PROJECT DECISION
-==================================
-
-Perhatian khusus pada Layer 3.
-
-Repository saat ini diketahui memiliki ARKL:
-
-calculation_version = 1.1.0-MVP
-
-Formula runtime harus Anda audit langsung.
-
-Sebelumnya ditemukan formula kira-kira:
-
-C_mg/m3 = ppm × conversion factor
-
-EC = C × (ET / 24) × (EF / 365)
-
-RQ = EC / RfC
-
-Namun penelitian akan mempertimbangkan revisi ke formula intake inhalasi ARKL:
-
-I = (C × R × tE × fE × Dt) / (Wb × tavg)
-
-RQ = I / reference value
-
-Parameter:
-
-C    = concentration
-R    = inhalation rate
-tE   = exposure time
-fE   = exposure frequency
-Dt   = exposure duration
-Wb   = body weight
-tavg = averaging time
-
-JANGAN implementasikan rumus baru.
-
-JANGAN mengarang tavg.
-
-JANGAN mengubah RfC/reference value.
-
-JANGAN menghapus hasil ARKL lama.
-
-Yang harus Anda lakukan hanya mencatat:
-
-- formula runtime aktual;
-- calculation version aktual;
-- mismatch dengan formula penelitian baru;
-- scientific decision yang masih dibutuhkan;
-- file yang nantinya terdampak.
-
-Karena formula belum final, status Layer 3 kemungkinan:
-
-REOPENED — SCIENTIFIC REVISION REQUIRED
-
-Tetapi verifikasi berdasarkan repository.
-
-==================================================
-LAYER 4 IMPORTANT STATUS
-========================
-
-Alert Engine sebelumnya sudah memiliki:
-
-Alert levels:
-NONE
-LOW
-MEDIUM
-HIGH
-CRITICAL
-
-Risk status:
-NO_ACTION_REQUIRED
-MONITORING_REQUIRED
-RISK_MANAGEMENT_REQUIRED
-IMMEDIATE_ACTION_REQUIRED
-
-Lifecycle:
-OPEN
-ACKNOWLEDGED
-RESOLVED
-
-Features:
-
-- deterministic decision matrix;
-- recommendation codes;
-- persistence;
-- deduplication;
-- escalation;
-- lifecycle;
-- REST API;
-- E2E tests.
-
-Alert Engine TIDAK BOLEH menghitung ulang ARKL/RQ/RfC.
-
-Jika ARKL formula berubah nanti, Layer 4 seharusnya menjalani regression, bukan otomatis diubah.
-
-Audit status aktualnya.
-
-==================================================
-LAYER 5 IMPORTANT STATUS
-========================
-
-Research app sudah ada.
-
-Audit apakah sudah ada:
-
-- H2S summary;
-- H2S trends;
-- time filter;
-- device filter;
-- simulated/physical filter;
-- ARKL recap;
-- risk distribution;
-- exposure summary;
-- alert summary;
-- export.
-
-Periksa juga apakah:
-
-research.urls
-
-sudah benar-benar di-include dari:
-
-config/urls.py
-
-dan apakah research endpoints sudah masuk:
-
-schema.yml
-
-Jangan hanya melihat file lokal research/urls.py.
-
-==================================================
-OBSERVABILITY
-=============
-
-Core observability existing harus dianggap reusable.
-
-Audit:
-
-- Request ID
-- request logging
-- error logging
-- performance monitoring
-- security audit
-- redaction
-- rotating logs
-- MQTT/background logger
-
-Jangan implement ulang.
-
-==================================================
-DO NOT MODIFY PROJECT LOGIC
-===========================
-
-Pada task ini:
-
-JANGAN:
-
-- refactor business code;
-- mengubah formula;
-- membuat migration;
-- mengubah database;
-- mengubah .env;
-- install dependency;
-- memperbaiki bug;
-- menambah endpoint;
-- menambah role;
-- menjalankan destructive command.
-
-Anda hanya boleh:
-
-- inspect;
-- run safe/read-only verification;
-- membuat/update file dokumentasi status proyek.
-
-==================================================
-SAFE VERIFICATION
-=================
-
-Jika runtime tersedia, boleh menjalankan:
-
-pytest -v
-ruff check .
-ruff format --check .
-python manage.py check
-python manage.py spectacular --file schema.yml
-pip-audit
-
-Tetapi:
-
-- jangan mengklaim PASS bila command tidak berhasil dijalankan;
-- bedakan VERIFIED vs INFERRED;
-- jangan menjalankan migration;
-- jangan memodifikasi database produksi.
-
-Jika environment agent tidak kompatibel dengan Windows .venv:
-catat sebagai NOT VERIFIED FROM CURRENT ENVIRONMENT.
-
-==================================================
-TARGET FILE
-===========
-
-Buat atau update file:
-
-catatan/PROJECT_STATUS.md
-
-Jika file tersebut sudah ada:
-REFRESH berdasarkan repository aktual.
-
-Jangan membuat banyak file status yang isinya tumpang tindih.
-
-==================================================
-FORMAT PROJECT_STATUS.md
-========================
-
-Gunakan struktur berikut secara lengkap:
-
-# SMART H2S ARKL — PROJECT STATUS
-
-## 1. Project Identity
-
-Tuliskan:
-
-- tujuan project;
-- backend stack;
-- database;
-- protocol IoT;
-- current architecture style.
-
-## 2. Current Overall Status
-
-Buat tabel:
-
-| Layer | Name | Status | Notes |
-| ----- | ---- | ------ | ----- |
-
-Status hanya gunakan:
-
-LOCKED
-DONE
-IN PROGRESS
-REOPENED
-PAUSED
-NOT STARTED
-
-Contoh jangan diikuti tanpa audit:
-
-Layer 1 | IoT Monitoring | DONE
-Layer 2 | Data & Exposure | DONE
-Layer 3 | Smart ARKL | REOPENED
-Layer 4 | Alert | LOCKED
-Layer 5 | Research | PAUSED/IN PROGRESS
-
-Tentukan berdasarkan repository aktual.
-
-## 3. Current Development Position
-
-Tulis satu kalimat sangat jelas:
-
-"Project saat ini berada pada ..."
-
-Lalu diagram:
-
-Completed
-↓
-Current
-↓
-Next
-↓
-Later
-
-## 4. Layer 1 — IoT Environmental Monitoring
-
-Catat:
-
-Implemented:
-
-- ...
-
-Verified:
-
-- ...
-
-Remaining:
-
-- ...
-
-Future physical IoT work:
-
-- ...
-
-Technical debt:
-
-- message id/idempotency
-- source timestamp
-- calibration
-- physical sensor transition
-  hanya jika repository mendukung temuan tersebut.
-
-## 5. Layer 2 — Data & Exposure Management
-
-Catat:
-
-Models:
-
-- Device
-- H2SReading
-- Worker
-- ExposureProfile
-
-Actual fields penting.
-
-Implemented API.
-
-Remaining work.
-
-Role-related future impact.
-
-## 6. Layer 3 — Smart ARKL
-
-WAJIB DETAIL.
-
-### Current Runtime Formula
-
-Tulis formula aktual persis berdasarkan code.
-
-### Current Version
-
-calculation_version = ...
-
-### Inputs Actually Used
-
-...
-
-### Inputs Stored But Not Used
-
-...
-
-### Current Output
-
-...
-
-### Scientific Revision Under Consideration
-
-Tuliskan formula intake yang direncanakan:
-
-I = ...
-
-RQ = ...
-
-Tetapi tandai:
-
-NOT IMPLEMENTED
-NEEDS SCIENTIFIC DECISION
-
-### Missing Scientific Decisions
-
-Contoh:
-
-- exact tavg for non-carcinogenic exposure;
-- exact reference value/RfC compatibility and units;
-- formula transcription verification;
-- scientific source/version.
-
-Jangan mengarang jawabannya.
-
-### Expected Impact
-
-List file/layer yang nanti terdampak.
-
-## 7. Layer 4 — Alert & Risk Management
-
-Catat:
-
-- rule version;
-- environmental mapping;
-- final matrix;
-- risk status;
-- recommendation;
-- persistence;
-- deduplication;
-- escalation;
-- lifecycle;
-- API;
-- E2E.
-
-Status apakah LOCKED atau tidak berdasarkan test/source.
-
-Tuliskan juga:
-
-"Jika ARKL v2 dibuat, Layer 4 membutuhkan regression but not automatic rule rewrite."
-
-## 8. Layer 5 — Research & Reporting
-
-Pisahkan:
-
-IMPLEMENTED
-PARTIAL
-MISSING
-
-Audit:
-
-H2S summary
-H2S trends
-ARKL recap
-risk distribution
-exposure summary
-alert summary
-export
-
-Catat apakah URL root sudah aktif.
-
-## 9. End-to-End Current Flow
-
-Buat diagram sesuai implementasi AKTUAL.
-
-Contoh:
-
-MQTT
-↓
-H2SReading
-↓
-manual/caller ARKL API
-↓
-ARKLResult
-↓
-manual/caller Alert evaluate API
-↓
-Alert
-↓
-Research
-
-Jika tidak ada automation langsung:
-tulis eksplisit.
-
-## 10. REST API Inventory
-
-Kelompokkan actual endpoint:
-
-Devices
-Exposure
-ARKL
-Alerts
-Research
-Docs
-
-Bedakan:
-
-ACTIVE
-LOCAL ONLY / NOT PUBLISHED
-MISSING
-
-## 11. Database Relationship
-
-Buat diagram:
-
-Device
-H2SReading
-Worker
-ExposureProfile
-ARKLResult
-Alert
-
-Catat on_delete policy yang penting.
-
-## 12. Testing Status
-
-Berikan:
-
-- jumlah test bila dapat diverifikasi;
-- per-app count jika dapat dihitung;
-- latest runtime result jika dapat dijalankan.
-
-Gunakan tabel:
-
-| Check | Status | Evidence |
-| ----- | ------ | -------- |
-
-Status:
-
-VERIFIED PASS
-VERIFIED FAIL
-NOT RUN
-INFERRED
-
-Checks:
-
-pytest
-ruff
-format
-Django check
-OpenAPI
-pip-audit
-
-## 13. Locked Components
-
-List yang jangan diubah sembarangan.
-
-Contoh:
-
-- MQTT payload contract
-- observability
-- Alert Engine rule version
-- historical ARKL records
-- API v1 prefix
-
-Hanya masukkan bila benar berdasarkan code.
-
-## 14. Reopened Components
-
-Terutama ARKL scientific calculation jika memang sesuai audit.
-
-Tuliskan alasan REOPENED.
-
-## 15. Paused Work
-
-Jika Phase 6 perlu dipause karena ARKL formula belum final:
-catat.
-
-Jangan menganggap paused jika repository menunjukkan development sedang lanjut tanpa dependency.
-
-## 16. Backlog / Remaining Tasks
-
-Gunakan prioritas:
-
-P0 — BLOCKER
-P1 — HIGH
-P2 — MEDIUM
-P3 — OPTIONAL
-
-Format:
-
-### P0
-
-- [ ] ...
-
-### P1
-
-- [ ] ...
-
-### P2
-
-- [ ] ...
-
-### P3
-
-- [ ] ...
-
-Task harus konkret, bukan kalimat abstrak.
-
-Contoh:
-
-- [ ] Lock tavg non-carcinogenic from approved scientific source.
-- [ ] Decide ARKL v2 reference value/unit compatibility.
-- [ ] Create versioned ARKL migration only after formula approval.
-- [ ] Run full alert regression after ARKL v2.
-- [ ] Finish research ARKL recap.
-- [ ] Add authentication/authorization.
-- [ ] Add Worker ownership.
-- [ ] Prepare physical IoT calibration.
-
-Tetapi sesuaikan dengan repository aktual.
-
-## 17. Current Blockers
-
-Tulis setiap blocker dengan:
-
-Blocker:
-Why:
-Required decision:
-Blocks which task:
-
-## 18. Technical Debt
-
-Gunakan severity:
-
-CRITICAL
-HIGH
-MEDIUM
-LOW
-
-Jangan membuat debt palsu.
-
-## 19. Authentication & Role Future Plan
-
-Current auth status:
-...
-
-Future roles:
-
-ADMIN
-OPERATOR
-RESEARCHER
-WORKER
-
-Recommended relation:
-
-Django User
-↓ optional link
-Worker
-
-Catat permission/ownership requirement.
-
-JANGAN implementasikan.
-
-## 20. Physical IoT Transition
-
-List:
-
-Already reusable:
-...
-
-Must change:
-...
-
-Must verify scientifically:
-...
-
-Contoh:
-
-firmware
-sensor calibration
-simulated=false
-device identity
-MQTT resilience
-timestamp/idempotency
-
-## 21. Recommended Next Tasks
-
-Tuliskan maksimal 10 task berurutan.
-
-Harus sangat konkret.
+Audit seluruh modul berikut:
+
+- config/
+- core/
+- accounts/
+- devices/
+- exposure/
+- arkl/
+- alerts/
+- research/
+- feature_tests/
+- schema.yml
+
+Periksa juga:
+
+- config/urls.py
+- urls.py setiap Django app
+- serializers.py
+- views.py / viewsets
+- permissions.py
+- services/
+- models.py
+- tests/
+- settings DRF
+- authentication configuration
+- CORS configuration
+- pagination configuration
+- exception/error response behavior bila ada
+
+============================================================
+
+1. INVENTARIS SELURUH ENDPOINT
+   ============================================================
+
+Temukan SELURUH endpoint /api/v1/... yang benar-benar terdaftar.
+
+Untuk SETIAP endpoint tuliskan:
+
+- method
+- path
+- nama/tujuan endpoint
+- authentication required atau tidak
+- role yang boleh mengakses:
+  ADMIN
+  OPERATOR
+  RESEARCHER
+  WORKER
+- request body
+- query parameters
+- path parameters
+- response body
+- HTTP success status
+- kemungkinan HTTP error status
+- serializer yang digunakan
+- pagination:
+  yes/no
+- apakah read-only atau write
+- catatan khusus frontend
+
+Jangan hanya tulis nama field.
+Tuliskan tipe datanya.
 
 Contoh format:
 
-1. ...
-2. ...
-3. ...
+POST /api/v1/auth/login/
+
+Authentication:
+Public
+
+Request:
+{
+  "username": string,
+  "password": string
+}
+
+Success 200:
+{
+  "token": string,
+  ...
+}
 
-## 22. Do Not Do Yet
+Errors:
+400 ...
+401 ...
 
-List hal yang harus ditunda.
+Frontend notes:
+
+- simpan token ...
+- gunakan Authorization header ...
+
+Tetapi isi sebenarnya HARUS berasal dari source code.
 
-Misalnya:
-
-- do not finish risk reporting before ARKL formula lock;
-- do not overwrite calculation version 1.1;
-- do not add AI diagnosis;
-- do not migrate Worker directly into auth model.
-
-Sesuaikan audit.
-
-## 23. Handoff Summary
-
-Buat ringkasan maksimal 20 baris yang dapat saya copy ke agent/chat baru.
-
-Harus mencakup:
-
-- current stage;
-- locked layer;
-- reopened layer;
-- paused layer;
-- main blocker;
-- immediate next task;
-- important versions;
-- do-not-touch components.
-
-==================================================
-TASK COMPLETION REQUIREMENT
-===========================
-
-Setelah file selesai:
-
-1. Tampilkan path file:
-   catatan/PROJECT_STATUS.md
-2. Ringkas apa yang berubah dari status lama.
-3. Tampilkan:
-
-   - CURRENT PHASE
-   - NEXT TASK
-   - MAIN BLOCKER
-   - LOCKED COMPONENTS
-4. JANGAN mulai coding task berikutnya.
-5. Berhenti dan tunggu approva
-
-Saya memiliki project Django backend untuk sistem monitoring H₂S berbasis IoT yang terintegrasi dengan Analisis Risiko Kesehatan Lingkungan (ARKL), alert/risk management, dan research/reporting.
-
-Root project:
-
-D:\\Kuliah\\joki\\dosen\\buk reni\\projek\\Backend
-
-Struktur utama:
-
-Backend/
-
-├── alerts/
-
-├── arkl/
-
-├── catatan/
-
-├── config/
-
-├── core/
-
-├── devices/
-
-├── exposure/
-
-├── logs/
-
-├── requirements/
-
-├── research/
-
-├── .env
-
-├── .env.example
-
-├── db.sqlite3
-
-├── manage.py
-
-├── pyproject.toml
-
-├── pytest.ini
-
-└── schema.yml
-
-TUGAS UTAMA ANDA:
-
-JANGAN LANGSUNG MENGUBAH CODE.
-
-Langkah pertama adalah melakukan AUDIT dan PEMAHAMAN MENYELURUH terhadap repository ini.
-
-Saya ingin Anda menjelaskan kepada saya:
-
-1\. Project ini sebenarnya melakukan apa.
-
-2\. Tujuan masing-masing app/module.
-
-3\. Alur data end-to-end.
-
-4\. Bagaimana hubungan antar layer.
-
-5\. Bagaimana backend menerima data IoT.
-
-6\. Bagaimana data H₂S disimpan.
-
-7\. Bagaimana data worker/pemulung dan profil pajanan digunakan.
-
-8\. Bagaimana Smart ARKL dihitung.
-
-9\. Bagaimana ARKLResult digunakan oleh Alert Engine.
-
-10\. Bagaimana deduplication, escalation, dan lifecycle alert bekerja.
-
-11\. Bagaimana Research & Reporting membaca data layer sebelumnya.
-
-12\. Endpoint REST API yang tersedia.
-
-13\. Test coverage dan kualitas repository saat ini.
-
-14\. Bagian yang sudah stabil/locked.
-
-15\. Bagian yang masih dalam development.
-
-16\. Technical debt, inkonsistensi, bug potensial, atau architectural smell.
-
-17\. Dampak jika rumus ARKL diganti.
-
-18\. Dampak jika nanti ditambahkan authentication dan role:
-
-\- ADMIN
-
-\- OPERATOR
-
-\- RESEARCHER
-
-\- WORKER / PEMULUNG
-
-19\. Bagian mana yang HARUS dipertahankan dan tidak boleh direfactor sembarangan.
-
-20\. Rekomendasi urutan development selanjutnya.
-
-\==================================================
-
-DOMAIN SYSTEM
-
-\==================================================
-
-Secara konseptual sistem terdiri dari 5 layer:
-
-Layer 1 — IoT Environmental Monitoring
-
-Layer 2 — Data & Exposure Management
-
-Layer 3 — Smart ARKL
-
-Layer 4 — Alert & Risk Management
-
-Layer 5 — Research & Reporting
-
-Alur konseptual:
-
-IoT Sensor / Wokwi
-
-↓
-
-MQTT
-
-↓
-
-H2SReading
-
-↓
-
-Worker + ExposureProfile
-
-↓
-
-Smart ARKL
-
-↓
-
-ARKLResult
-
-↓
-
-Alert Engine
-
-↓
-
-Alert + Recommendation
-
-↓
-
-Research & Reporting
-
-↓
-
-React Frontend
-
-\==================================================
-
-LAYER 1 — IOT
-
-\==================================================
-
-IoT menggunakan ESP32/Wokwi untuk simulasi H₂S.
-
-Telemetry dikirim via MQTT.
-
-Payload umumnya memiliki:
-
-device\_id
-
-ppm
-
-adc
-
-filtered\_adc
-
-level
-
-status
-
-uptime\_ms
-
-simulated
-
-Backend harus menyimpan data valid sebagai H2SReading.
-
-Simulated data harus tetap dapat dibedakan dari physical sensor data.
-
-JANGAN mengubah MQTT contract tanpa alasan teknis yang kuat.
-
-\==================================================
-
-LAYER 2 — DATA & EXPOSURE
-
-\==================================================
-
-Model utama:
-
-Device
-
-H2SReading
-
-Worker
-
-ExposureProfile
-
-ExposureProfile memiliki parameter seperti:
-
-body\_weight
-
-exposure\_time
-
-exposure\_frequency
-
-exposure\_duration
-
-inhalation\_rate
-
-Worker saat ini merupakan domain entity/subjek pajanan.
-
-Worker BUKAN authentication user.
-
-Jika nanti ditambahkan login untuk pemulung, sebaiknya User Account dihubungkan dengan Worker, bukan mengganti Worker menjadi auth model secara sembarangan.
-
-\==================================================
-
-LAYER 3 — SMART ARKL
-
-\==================================================
-
-PERHATIAN:
-
-Layer 3 adalah scientific calculation layer.
-
-Jangan berasumsi rumus yang ada saat ini sudah final tanpa audit code.
-
-Rumus ARKL yang sedang dipertimbangkan sebagai rumus penelitian adalah intake inhalasi:
-
-I = (C × R × fE × Dt) / (Wb × tavg)
-
-dengan:
-
-C = concentration
-
-R = inhalation rate
-
-tE = exposure time
-
-fE = exposure frequency
-
-Dt = exposure duration
-
-Wb = body weight
-
-tavg = averaging time
-
-dan karakterisasi risiko:
-
-RQ = I / RfC
-
-Namun repository saat ini mungkin masih menggunakan ARKL calculation version sebelumnya.
-
-AUDIT IMPLEMENTASI AKTUAL.
-
-Jangan langsung mengganti formula.
-
-Laporkan secara jelas:
-
-\- formula aktual di code;
-
-\- field yang digunakan;
-
-\- field yang hanya disimpan sebagai snapshot;
-
-\- calculation\_version;
-
-\- perbedaan antara implementation existing dengan formula intake di atas;
-
-\- file yang harus berubah jika formula diganti.
-
-Jangan mengarang nilai tavg.
-
-Jangan mengubah RfC tanpa scientific source.
-
-RQ bukan probability penyakit dan bukan diagnosis ISPA.
-
-\==================================================
-
-LAYER 4 — ALERT & RISK MANAGEMENT
-
-\==================================================
-
-Layer 4 sudah cukup matang dan sebisa mungkin dianggap stable.
-
-Alert Engine tidak boleh:
-
-\- menghitung ulang RQ;
-
-\- menghitung ulang ARKL;
-
-\- mengubah RfC;
-
-\- menentukan diagnosis;
-
-\- mengubah scientific threshold secara sembarangan.
-
-Layer 4 membaca:
-
-H2SReading
-
-ARKLResult
-
-dan menghasilkan deterministic:
-
-Alert Level:
-
-NONE
-
-LOW
-
-MEDIUM
-
-HIGH
-
+============================================================
+2. AUDIT AUTHENTICATION CONTRACT
+================================
+
+Audit secara khusus:
+
+POST /api/v1/auth/login/
+POST /api/v1/auth/logout/
+GET  /api/v1/auth/me/
+POST /api/v1/accounts/
+
+Pastikan frontend tahu secara pasti:
+
+- credential login yang diminta
+- format response login
+- nama field token
+- header autentikasi yang digunakan
+
+Contoh yang harus diverifikasi, bukan diasumsikan:
+
+Authorization: Token <token></token>
+
+- logout membutuhkan token atau tidak
+- response logout
+- struktur /auth/me/
+- bagaimana mendapatkan role user
+- bagaimana WORKER dikaitkan ke Worker
+- status jika worker tidak aktif
+- apa yang terjadi jika AccountProfile tidak ada
+- role ADMIN superuser bila memiliki perilaku khusus
+
+Buat contoh alur:
+
+Login
+→ token
+→ GET /auth/me/
+→ role
+→ frontend route selection
+
+============================================================
+3. AUDIT WORKER API CONTRACT
+============================
+
+Audit khusus endpoint personal worker:
+
+GET/PATCH /api/v1/me/profile/
+GET/PATCH /api/v1/me/exposure/
+GET       /api/v1/me/arkl-results/
+GET       /api/v1/me/alerts/
+
+Untuk setiap endpoint:
+
+- field yang dikembalikan
+- tipe data
+- nullable
+- editable
+- read-only
+- validation
+- pagination
+- ordering bila ada
+- empty-state response
+- response jika ExposureProfile belum ada
+- response jika Worker link tidak ada
+- response jika worker inactive
+
+Konfirmasikan khusus bahwa worker:
+
+- tidak dapat mengganti worker code
+- tidak dapat mengganti is_active
+- tidak dapat mengganti inhalation_rate jika memang source code melarangnya
+- hanya dapat melihat ARKL miliknya
+- hanya dapat melihat alert miliknya
+- tidak dapat memakai generic operational API
+
+============================================================
+4. AUDIT DEVICE DAN SENSOR CONTRACT
+===================================
+
+Cari seluruh API terkait:
+
+- devices
+- H2S readings
+- latest reading
+- history/readings bila ada
+
+Dokumentasikan:
+
+Device:
+
+- id
+- device_code
+- name
+- location
+- is_active
+- timestamps
+- seluruh field aktual lainnya
+
+H2SReading:
+
+- id
+- device
+- ppm
+- adc
+- filtered_adc
+- level
+- status
+- uptime_ms
+- simulated
+- timestamp/received_at
+- seluruh field aktual lainnya
+
+Pastikan frontend tahu enum/status aktual sensor.
+
+Contoh:
+NORMAL
+CAUTION
+WARNING
+DANGER
 CRITICAL
 
-Risk Status:
+Tetapi verifikasi enum aktual dari source.
 
-NO\_ACTION\_REQUIRED
+Audit juga endpoint latest sensor reading secara tepat:
 
-MONITORING\_REQUIRED
+- apakah latest global
+- latest per device
+- request parameter
+- response format
+- kondisi jika belum ada reading
 
-RISK\_MANAGEMENT\_REQUIRED
+============================================================
+5. AUDIT EXPOSURE CONTRACT
+==========================
 
-IMMEDIATE\_ACTION\_REQUIRED
+Dokumentasikan Worker dan ExposureProfile.
 
-Lifecycle:
+Pastikan tipe dan validation aktual untuk:
 
+Worker:
+
+- code
+- name
+- age
+- is_active
+
+Exposure:
+
+- body_weight
+- exposure_time
+- exposure_frequency
+- exposure_duration
+- inhalation_rate
+
+Tuliskan unit setiap field jika dapat diverifikasi dari source/tests:
+
+body_weight = kg
+exposure_time = jam/hari
+exposure_frequency = hari/tahun
+exposure_duration = tahun
+inhalation_rate = m3/jam
+
+Dokumentasikan constraints yang benar-benar diterapkan.
+
+Misalnya:
+body_weight > 0
+0 < exposure_time <= 24
+0 < exposure_frequency <= 365
+exposure_duration > 0
+inhalation_rate > 0
+
+Tetapi verifikasi terlebih dahulu dari code.
+
+============================================================
+6. AUDIT ARKL API CONTRACT
+==========================
+
+Cari endpoint:
+
+- realtime calculation
+- historical calculation
+- ARKL result list/detail
+- endpoint ARKL lain jika ada
+
+Untuk realtime dokumentasikan:
+
+Request:
+
+- worker identifier seperti apa
+- device identifier seperti apa
+
+Response:
+
+- id
+- worker
+- reading
+- calculation_type
+- concentration_ppm
+- concentration_mg_m3
+- exposure_concentration_mg_m3
+- body_weight
+- exposure_time
+- exposure_frequency
+- exposure_duration
+- inhalation_rate
+- averaging_time
+- intake
+- rfc
+- rq
+- interpretation
+- calculation_version
+- source_simulated
+- timestamps
+- field aktual lainnya
+
+Jangan menghitung ulang formula.
+Hanya dokumentasikan contract output.
+
+Dokumentasikan enum interpretation aktual:
+
+WITHIN_REFERENCE_LEVEL
+ABOVE_REFERENCE_LEVEL
+
+bila memang itu yang digunakan.
+
+Dokumentasikan historical request:
+
+- start_time
+- end_time
+- worker/device
+- format datetime
+- timezone
+- response reading_count
+- response reading null/non-null
+- error jika tidak ada reading
+
+============================================================
+7. AUDIT ALERT CONTRACT
+=======================
+
+Ini sangat penting untuk frontend.
+
+Cari seluruh endpoint:
+
+- list alert
+- detail alert
+- evaluate
+- acknowledge
+- resolve
+- personal worker alerts
+
+Dokumentasikan seluruh field Alert aktual.
+
+Verifikasi enum aktual:
+
+alert_level:
+NONE
+LOW
+MEDIUM
+HIGH
+CRITICAL
+
+environmental status/severity:
+NORMAL
+CAUTION
+WARNING
+DANGER
+CRITICAL
+
+lifecycle:
 OPEN
-
 ACKNOWLEDGED
-
 RESOLVED
 
-Deduplication harus mencegah repeated identical active alert.
-
-ACKNOWLEDGED masih dianggap active.
-
-RESOLVED memungkinkan alert baru.
-
-Severity increase merupakan escalation.
-
-Jangan mengubah decision matrix tanpa menemukan kebutuhan domain/scientific yang valid.
-
-Alert rule version existing harus diaudit.
-
-\==================================================
-
-LAYER 5 — RESEARCH & REPORTING
-
-\==================================================
-
-Research layer harus bersifat read-oriented.
-
-Ia membaca:
-
-H2SReading
-
-ExposureProfile
-
-ARKLResult
-
-Alert
-
-dan melakukan:
-
-query
-
-filter
-
-aggregation
-
-statistics
-
-trend preparation
-
-reporting
-
-Research layer TIDAK BOLEH menduplikasi:
-
-ARKL formula
-
-alert decision matrix
-
-environmental threshold
-
-Audit current research app.
-
-Cek apakah sudah terdapat:
-
-h2s summary
-
-h2s trends
-
-ARKL recap
-
-risk distribution
-
-exposure summary
-
-alert summary
-
-Pisahkan:
-
-IMPLEMENTED
-
-PARTIAL
-
-NOT IMPLEMENTED
-
-\==================================================
-
-OBSERVABILITY
-
-\==================================================
-
-Core observability sudah ada.
-
-Jangan implement ulang tanpa alasan.
-
-Audit keberadaan:
-
-Request ID
-
-request logging
-
-error logging
-
-performance monitoring
-
-security audit
-
-redaction
-
-rotating logs
-
-HTTP feature harus memakai middleware existing.
-
-Background/MQTT logging harus mengikuti logger existing.
-
-\==================================================
-
-ARCHITECTURE PRINCIPLES
-
-\==================================================
-
-Pertahankan arsitektur sederhana:
-
-View
-
-↓
-
-Serializer
-
-↓
-
-Service
-
-↓
-
-Model / ORM
-
-↓
-
-SQLite
-
-Gunakan prinsip:
-
-SOLID
-
-KISS
-
-YAGNI
-
-JANGAN menambahkan tanpa kebutuhan nyata:
-
-Repository Pattern
-
-DI Container
-
-Celery
-
-Redis
-
-Channels
-
-Kafka
-
-Microservices
-
-Event Bus
-
-Pandas dalam request path
-
-Data Warehouse
-
-\==================================================
-
-SECURITY
-
-\==================================================
-
-JANGAN:
-
-\- membaca atau menampilkan value dari .env;
-
-\- mencetak secret;
-
-\- menampilkan password/token;
-
-\- memasukkan secret ke hasil audit.
-
-Anda boleh memeriksa NAMA environment variable bila memang perlu, tetapi jangan tampilkan nilainya.
-
-\==================================================
-
-AUDIT ORDER
-
-\==================================================
-
-Lakukan audit dengan urutan berikut:
-
-1\. Inspect root repository.
-
-2\. Inspect config/settings.py.
-
-3\. Inspect config/urls.py.
-
-4\. Inspect pyproject.toml.
-
-5\. Inspect pytest.ini.
-
-6\. Inspect requirements.
-
-7\. Inspect devices app.
-
-8\. Inspect exposure app.
-
-9\. Inspect arkl app.
-
-10\. Inspect alerts app.
-
-11\. Inspect research app.
-
-12\. Inspect core observability.
-
-13\. Inspect migrations.
-
-14\. Inspect tests.
-
-15\. Inspect schema.yml bila relevan.
-
-16\. Jalankan static reasoning terhadap dependency flow.
-
-17\. Jika environment memungkinkan, jalankan test suite READ-ONLY.
-
-18\. Jangan modify files.
-
-\==================================================
-
-OUTPUT YANG SAYA MAU
-
-\==================================================
-
-Setelah audit, berikan laporan dengan format ini:
-
-\# 1. Executive Summary
-
-Jelaskan dalam bahasa sederhana:
-
-\- project ini apa;
-
-\- siapa pengguna potensialnya;
-
-\- problem yang diselesaikan;
-
-\- kondisi repository saat ini.
-
-\# 2. Actual Architecture
-
-Buat diagram text:
-
-IoT
-
-↓
-
-MQTT
-
-↓
-
-Device/H2SReading
-
-↓
-
-Exposure
-
-↓
-
-ARKL
-
-↓
-
-Alert
-
-↓
-
-Research
-
-↓
-
-Frontend
-
-Tetapi sesuaikan berdasarkan IMPLEMENTASI AKTUAL, bukan asumsi saya.
-
-\# 3. Application / Module Map
-
-Untuk setiap app:
-
-config
-
-core
-
-devices
-
-exposure
-
-arkl
-
-alerts
-
-research
-
-jelaskan:
-
-\- responsibility;
-
-\- model;
-
-\- services;
-
-\- API;
-
-\- tests;
-
-\- dependency.
-
-\# 4. End-to-End Data Flow
-
-Jelaskan langkah demi langkah dari MQTT message sampai research API.
-
-\# 5. Database Model Relationship
-
-Jelaskan relasi:
-
-Device
-
-H2SReading
-
-Worker
-
-ExposureProfile
-
-ARKLResult
-
-Alert
-
-Buat diagram relational text.
-
-\# 6. Smart ARKL Audit
-
-WAJIB DETAIL.
+risk status aktual
+recommendation_codes aktual
+created
+duplicate
+escalated
+
+Jangan menebak nama JSON key.
+
+Baca serializer dan tests untuk memastikan response sebenarnya.
+
+Dokumentasikan response `/alerts/evaluate/` dengan tepat.
+
+Contoh struktur yang harus diverifikasi:
+
+{
+  "created": boolean,
+  "duplicate": boolean,
+  "escalated": boolean,
+  "alert": {...}
+}
+
+Dokumentasikan:
+
+- kondisi alert == null bila level NONE, bila memang benar
+- duplicate behavior
+- escalation behavior
+- acknowledge
+- resolved
+- acknowledged_by
+- acknowledged_by_username
+- resolved_by
+- resolved_by_username
+- timestamps
+
+============================================================
+8. WORKER-FRIENDLY MESSAGE
+==========================
+
+Periksa apakah backend SUDAH memiliki field seperti:
+
+worker_message
+display_message
+user_message
+risk_message
+presentation_label
+
+Jika BELUM ADA:
+JANGAN membuatnya diam-diam.
 
 Tuliskan:
 
-Current formula in repository:
+STATUS: NOT IMPLEMENTED IN BACKEND
 
-...
+dan rekomendasikan frontend mapping dari alert_level:
 
-Current calculation version:
+NONE     -> Normal
+LOW      -> Waspada
+MEDIUM   -> Peringatan
+HIGH     -> Bahaya
+CRITICAL -> Kritis
 
-...
+Pesan yang direncanakan frontend:
 
-Inputs actually used:
+NONE:
+"Kondisi terkendali. Tetap bekerja sesuai prosedur keselamatan."
 
-...
+LOW:
+"Kadar H₂S mulai meningkat. Batasi waktu berada di area ini."
 
-Inputs stored but not used:
+MEDIUM:
+"Kadar H₂S tinggi. Sebaiknya menjauh dari area ini dan gunakan perlindungan yang dianjurkan."
 
-...
+HIGH:
+"Kondisi berbahaya. Segera tinggalkan area dan menuju tempat yang lebih aman."
 
-Outputs:
+CRITICAL:
+"BAHAYA SERIUS. Segera keluar dari area dan ikuti arahan petugas keselamatan."
 
-...
+Tegaskan bahwa presentation mapping tersebut BUKAN perubahan Alert Engine.
 
-Scientific assumptions:
+Jangan menggunakan bahasa diagnosis seperti:
 
-...
+- Anda terkena ISPA
+- Anda terdiagnosis ISPA
+- persentase kemungkinan ISPA
 
-Mismatch dengan formula intake inhalasi:
+============================================================
+9. AUDIT RESEARCH API CONTRACT
+==============================
 
-...
+Audit endpoint research aktual seperti:
 
-Files impacted if formula changes:
+/api/v1/research/h2s-summary/
+/api/v1/research/h2s-trends/
+/api/v1/research/arkl-results/
+/api/v1/research/risk-distribution/
+/api/v1/research/exposure-summary/
+/api/v1/research/alert-summary/
+/api/v1/research/export/arkl.csv
 
-...
+Tetapi jangan hanya memakai daftar ini.
+Verifikasi registration aktual.
 
-Jangan modify code.
+Untuk setiap response dokumentasikan struktur JSON sampai level
+yang cukup agar React dapat langsung membuat chart/table.
 
-\# 7. Alert Engine Audit
+Untuk CSV:
 
-Jelaskan:
+- method
+- Content-Type
+- Content-Disposition
+- nama file bila ditentukan
+- query parameter bila ada
+- authorization
 
-\- environmental mapping;
+============================================================
+10. ROLE MATRIX
+===============
 
-\- decision matrix;
+Buat satu tabel FINAL:
 
-\- risk-status mapping;
+Endpoint/Feature | ADMIN | OPERATOR | RESEARCHER | WORKER
 
-\- recommendations;
+Minimal untuk:
 
-\- persistence;
-
-\- deduplication;
-
-\- escalation;
-
-\- lifecycle;
-
-\- API;
-
-\- rule version.
-
-\# 8. Research Layer Audit
-
-Pisahkan:
-
-Implemented:
-
-...
-
-Partial:
-
-...
-
-Missing:
-
-...
-
-\# 9. REST API Map
-
-List semua endpoint berdasarkan urls.py dan schema.
-
-Kelompokkan:
-
+Authentication
+Accounts
 Devices
-
+Readings
+Workers
 Exposure
-
-ARKL
-
-Alerts
-
+ARKL realtime
+ARKL historical
+ARKL results
+Alerts read
+Alert evaluate
+Alert ACK
+Alert resolve
 Research
+/me/profile
+/me/exposure
+/me/arkl-results
+/me/alerts
 
-Documentation
+Gunakan:
+✅ Allowed
+👁 Read only
+❌ Denied
+🌐 Public
 
-\# 10. Testing & Quality Status
+Tabel harus berdasarkan permission class aktual.
+
+============================================================
+11. FRONTEND DATA TYPES
+=======================
+
+Setelah audit selesai, buat draft TypeScript interface berdasarkan API aktual.
+
+Contoh file konseptual:
+
+src/types/api.ts
+
+Buat interface seperti:
+
+AuthUser
+LoginRequest
+LoginResponse
+Worker
+ExposureProfile
+Device
+H2SReading
+ARKLResult
+Alert
+ResearchH2SSummary
+ResearchTrendPoint
+dst.
+
+Jangan membuat field yang tidak ada di backend.
+
+Tentukan optional / nullable secara benar.
+
+Contoh:
+
+interface ARKLResult {
+  id: number;
+  rq: string | number;
+  ...
+}
+
+Periksa bagaimana DecimalField DRF benar-benar diserialisasi.
+Jika menjadi string, gunakan string dan jangan menganggap number.
+
+============================================================
+12. FRONTEND API MODULE MAP
+===========================
+
+Setelah contract ditemukan, rekomendasikan API client sederhana untuk solo developer.
+
+Gunakan struktur minimal:
+
+src/
+  api/
+    client.ts
+    auth.ts
+    worker.ts
+    monitoring.ts
+    arkl.ts
+    alerts.ts
+    research.ts
+
+Jangan gunakan Redux.
+Jangan gunakan repository pattern.
+Jangan gunakan clean architecture frontend.
+Jangan membuat abstraction yang tidak diperlukan.
+
+Untuk setiap file tulis endpoint mana yang digunakan.
+
+Contoh:
+
+auth.ts
+
+- login()
+- logout()
+- me()
+
+worker.ts
+
+- getMyProfile()
+- updateMyProfile()
+- getMyExposure()
+- updateMyExposure()
+
+Dan seterusnya berdasarkan API aktual.
+
+============================================================
+13. AUDIT CORS + FRONTEND CONNECTIVITY
+======================================
+
+Periksa settings Django.
 
 Laporkan:
 
-\- total tests bila dapat diverifikasi;
+- CORS package/config
+- allowed origins
+- CSRF configuration bila relevan
+- SessionAuthentication implications
+- TokenAuthentication implications
+- apakah React localhost dapat mengakses backend
+- expected backend base URL development
+- trailing slash behavior
 
-\- test distribution per app;
+JANGAN menampilkan secret configuration.
 
-\- Ruff config;
+Buat contoh konfigurasi frontend yang aman:
 
-\- Django check;
+VITE_API_BASE_URL=http://127.0.0.1:8000/api/v1
 
-\- OpenAPI;
+Tetapi beri label sebagai recommended development configuration,
+bukan secret backend.
 
-\- pip-audit jika tersedia.
+============================================================
+14. ERROR CONTRACT
+==================
 
-Jangan mengklaim PASS jika tidak dijalankan.
+Frontend perlu tahu bentuk error.
 
-Pisahkan:
+Periksa response aktual untuk:
 
-VERIFIED
+- 400 validation
+- 401 unauthenticated
+- 403 permission denied
+- 404
+- invalid login
+- missing exposure profile
+- missing reading
+- invalid ARKL calculation
+- invalid alert lifecycle transition
 
-INFERRED
+Berikan contoh shape berdasarkan tests/source.
 
-NOT CHECKED
+Jika error shape belum konsisten, tandai sebagai:
 
-\# 11. Locked / Stable Components
+API CONTRACT RISK
 
-List code yang jangan disentuh tanpa alasan kuat.
+Jangan membuat global error handler backend kecuali diminta.
 
-\# 12. In-Progress Components
+============================================================
+15. PAGINATION DAN ORDERING
+===========================
 
-List fitur yang belum selesai.
+Cari apakah DRF global pagination digunakan.
 
-\# 13. Risks & Technical Debt
+Untuk endpoint list, dokumentasikan apakah response:
 
-Prioritaskan:
+[
+  ...
+]
 
-CRITICAL
+atau:
 
-HIGH
+{
+  "count": ...,
+  "next": ...,
+  "previous": ...,
+  "results": [...]
+}
 
-MEDIUM
+Periksa aktual, jangan menebak.
 
-LOW
+Audit ordering untuk:
 
-Jangan membuat masalah palsu hanya untuk mengisi daftar.
+- readings
+- ARKL results
+- alerts
+- research trend
 
-\# 14. ARKL Formula Migration Impact
+Frontend perlu tahu apakah newest-first atau oldest-first.
 
-Analisis bila formula diubah menjadi:
+============================================================
+16. OPENAPI / schema.yml DRIFT
+==============================
 
-I = (C × R × fE × Dt) / (Wb × tavg)
+Bandingkan semua endpoint aktual dengan:
 
-RQ = I / RfC
+schema.yml
 
-Jelaskan dampak ke:
+Buat tabel:
 
-Layer 1
+Endpoint | Source Code | schema.yml | Status
 
-Layer 2
+Contoh:
 
-Layer 3
+/api/v1/auth/login/ | YES | NO | SCHEMA STALE
 
-Layer 4
+Cari:
 
-Layer 5
+- endpoint missing
+- field missing
+- response mismatch
+- auth mismatch
+- role/permission yang tidak terwakili
+- obsolete endpoint
 
-tests
+JANGAN langsung regenerate sebelum audit selesai.
 
-database
+============================================================
+17. TEST VALIDATION
+===================
 
-API
+Jalankan hanya safe/read-only validation:
 
-frontend
+python manage.py check
+pytest feature_tests -v
+pytest -v
 
-\# 15. Future Role Architecture
-
-Analisis penambahan role:
-
-ADMIN
-
-OPERATOR
-
-RESEARCHER
-
-WORKER
-
-Dengan prinsip:
-
-Auth User
-
-↓
-
-optional link
-
-↓
-
-Worker
-
-Worker tidak otomatis menjadi auth model.
-
-Jelaskan authorization/ownership yang dibutuhkan.
-
-\# 16. Recommended Development Roadmap
-
-Susun urutan yang paling aman berdasarkan repository aktual.
-
-Contoh, JANGAN IKUTI BUTA-BUTA:
-
-Scientific formula lock
-
-↓
-
-ARKL migration
-
-↓
-
-Alert regression
-
-↓
-
-Research continuation
-
-↓
-
-Authentication
-
-↓
-
-Role/permissions
-
-↓
-
-Frontend
-
-↓
-
-Physical IoT transition
-
-↓
-
-Deployment
-
-Tentukan urutan berdasarkan temuan aktual.
-
-\# 17. Files That Would Change
-
-JANGAN mengubahnya.
-
-Hanya list:
-
-MODIFY
-
-NEW
-
-VERIFY
-
-DO NOT TOUCH
-
-untuk perubahan rumus ARKL + role system.
-
-\==================================================
-
-CRITICAL RULE
-
-\==================================================
-
-Jangan melakukan coding atau refactor pada tahap audit.
-
-Jangan membuat file.
-
-Jangan menjalankan migration.
-
-Jangan menghapus file.
-
-Jangan mengubah database.
-
-Jangan mengubah formula.
-
+Jangan menghapus DB.
+Jangan flush.
+Jangan reset migration.
 Jangan mengubah .env.
 
-Jangan install dependency.
+Laporkan hasil aktual.
 
-Jangan menjalankan command destructive.
+Jika test lama gagal akibat environment, jangan mengubah business logic
+hanya supaya test hijau. Analisis penyebab dahulu.
 
-Pertama pahami project secara aktual.
+============================================================
+18. OUTPUT DOCUMENT
+===================
 
-Jika dokumentasi/chat saya berbeda dengan repository:
+Buat file baru:
 
-REPOSITORY + TESTS + MIGRATIONS adalah source of truth teknis.
+catatan/FRONTEND_API_CONTRACT.md
 
-Tetapi untuk keputusan scientific yang belum final:
+Dokumen harus berisi:
 
-jangan menyimpulkan sendiri.
+# SMART H2S ARKL — FRONTEND API CONTRACT
 
-Tandai sebagai NEEDS SCIENTIFIC DECISION.
+## 1. Contract Status
 
-Setelah selesai, berhenti dan tunggu approval saya sebelum melakukan perubahan.
+## 2. Base URL
+
+## 3. Authentication
+
+## 4. Role Matrix
+
+## 5. Auth Endpoints
+
+## 6. Worker Personal Endpoints
+
+## 7. Device & H2S Endpoints
+
+## 8. Worker & Exposure Endpoints
+
+## 9. ARKL Endpoints
+
+## 10. Alert Endpoints
+
+## 11. Research Endpoints
+
+## 12. Enums
+
+## 13. Error Responses
+
+## 14. Pagination & Ordering
+
+## 15. Suggested TypeScript Interfaces
+
+## 16. Suggested Frontend API Modules
+
+## 17. CORS / Local Development
+
+## 18. Schema Drift
+
+## 19. Known Integration Risks
+
+## 20. Frontend Readiness Verdict
+
+Pada bagian paling akhir tulis salah satu:
+
+FRONTEND READY
+atau
+FRONTEND READY WITH MINOR CONTRACT FIXES
+atau
+NOT FRONTEND READY
+
+beserta alasan berdasarkan audit aktual.
+
+============================================================
+19. OUTPUT TERMINAL
+===================
+
+Setelah selesai, jangan dump seluruh file ke terminal.
+
+Tampilkan ringkasan:
+
+1. jumlah endpoint aktual
+2. jumlah endpoint per role
+3. auth mechanism
+4. endpoint Worker yang siap
+5. endpoint Operator yang siap
+6. endpoint Researcher yang siap
+7. schema drift ditemukan/tidak
+8. blocker frontend bila ada
+9. test result
+10. file dokumentasi yang dibuat
+
+============================================================
+20. BATASAN
+===========
+
+PENTING:
+
+- Jangan mengubah formula ARKL.
+- Jangan mengubah RfC.
+- Jangan mengubah conversion factor.
+- Jangan mengubah Alert decision matrix.
+- Jangan mengubah recommendation rules.
+- Jangan mengubah permission hanya untuk membuat frontend lebih mudah.
+- Jangan menambahkan endpoint baru tanpa bukti frontend benar-benar membutuhkannya.
+- Jangan install dependency baru.
+- Jangan membuat Redux.
+- Jangan membuat WebSocket.
+- Jangan membuat frontend.
+- Jangan menyentuh nilai .env.
+- Jangan menampilkan secret.
+- Jangan overengineering.
+
+Ini adalah AUDIT DAN CONTRACT FREEZE sebelum frontend dibuat.
+
+Mulai dengan membaca source code aktual terlebih dahulu.
