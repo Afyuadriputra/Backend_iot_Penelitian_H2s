@@ -13,7 +13,10 @@ from alerts.services.constants import (
     AlertLifecycleStatus,
 )
 from arkl.models import ARKLResult
-from devices.models import Device, H2SReading
+from devices.models import (
+    Device,
+    H2SReading,
+)
 from exposure.models import (
     ExposureProfile,
     Worker,
@@ -70,8 +73,8 @@ def make_operator_client(
 
 
 def make_worker_client(
-    worker,
-    username,
+    worker: Worker,
+    username: str,
 ):
     return make_authenticated_client(
         username=username,
@@ -98,15 +101,21 @@ def make_worker_with_exposure(
         is_active=True,
     )
 
-    exposure = ExposureProfile.objects.create(
-        worker=worker,
-        body_weight=body_weight,
-        exposure_time=exposure_time,
-        exposure_frequency=exposure_frequency,
-        exposure_duration=exposure_duration,
-        inhalation_rate=Decimal(
-            inhalation_rate
-        ),
+    exposure = (
+        ExposureProfile.objects.create(
+            worker=worker,
+            body_weight=body_weight,
+            exposure_time=exposure_time,
+            exposure_frequency=(
+                exposure_frequency
+            ),
+            exposure_duration=(
+                exposure_duration
+            ),
+            inhalation_rate=Decimal(
+                inhalation_rate
+            ),
+        )
     )
 
     return worker, exposure
@@ -143,12 +152,51 @@ def make_reading(
     )
 
 
+def assign_monitoring_device(
+    *,
+    worker: Worker,
+    device: Device,
+) -> None:
+    """
+    Assign the canonical realtime monitoring
+    device to the Worker.
+
+    REALTIME ARKL must only use readings from
+    this assigned Device.
+    """
+    worker.monitoring_device = device
+
+    worker.save(
+        update_fields=[
+            "monitoring_device",
+        ]
+    )
+
+
 def calculate_realtime(
     *,
     client,
     worker,
     device,
 ):
+    """
+    Execute the complete realtime application
+    flow:
+
+        Worker + assigned Device
+        → latest H2SReading
+        → ARKL calculation
+        → ARKLResult
+        → automatic Alert evaluation
+
+    Returns:
+        (arkl_result_payload, alert_evaluation)
+    """
+    assign_monitoring_device(
+        worker=worker,
+        device=device,
+    )
+
     response = client.post(
         "/api/v1/arkl/realtime/",
         {
@@ -160,22 +208,18 @@ def calculate_realtime(
 
     assert response.status_code == 201
 
-    return response.json()
+    payload = response.json()
 
+    assert "arkl_result" in payload
 
-def evaluate_alert(
-    *,
-    client,
-    arkl_result_id,
-):
-    return client.post(
-        "/api/v1/alerts/evaluate/",
-        {
-            "arkl_result_id": (
-                arkl_result_id
-            ),
-        },
-        format="json",
+    assert (
+        "alert_evaluation"
+        in payload
+    )
+
+    return (
+        payload["arkl_result"],
+        payload["alert_evaluation"],
     )
 
 
@@ -253,12 +297,16 @@ def test_worker_risk_scenarios(
     expected_interpretation,
     expected_alert_level,
 ):
-    worker, _ = make_worker_with_exposure(
-        code=(
-            "PML-SCENARIO-"
-            f"{scenario_name.upper()}"
-        ),
-        name=f"Pemulung {scenario_name}",
+    worker, _ = (
+        make_worker_with_exposure(
+            code=(
+                "PML-SCENARIO-"
+                f"{scenario_name.upper()}"
+            ),
+            name=(
+                f"Pemulung {scenario_name}"
+            ),
+        )
     )
 
     device = make_device(
@@ -276,18 +324,27 @@ def test_worker_risk_scenarios(
         simulated=True,
     )
 
-    _, operator = make_operator_client(
-        username=(
-            "operator-"
-            f"{scenario_name.lower()}"
+    _, operator = (
+        make_operator_client(
+            username=(
+                "operator-"
+                f"{scenario_name.lower()}"
+            )
         )
     )
 
-    arkl_data = calculate_realtime(
+    (
+        arkl_data,
+        alert_evaluation,
+    ) = calculate_realtime(
         client=operator,
         worker=worker,
         device=device,
     )
+
+    # --------------------------------------------------------
+    # ARKL
+    # --------------------------------------------------------
 
     assert (
         Decimal(
@@ -311,29 +368,46 @@ def test_worker_risk_scenarios(
         )
     )
 
-    assert arkl_result.worker == worker
-    assert arkl_result.reading == reading
-
-    alert_response = evaluate_alert(
-        client=operator,
-        arkl_result_id=(
-            arkl_result.pk
-        ),
+    assert (
+        arkl_result.worker
+        == worker
     )
 
-    assert alert_response.status_code in (
-        200,
-        201,
+    assert (
+        arkl_result.reading
+        == reading
     )
 
-    payload = alert_response.json()
+    # --------------------------------------------------------
+    # AUTOMATIC ALERT EVALUATION
+    # --------------------------------------------------------
 
-    if expected_alert_level is None:
-        # NORMAL + WITHIN_REFERENCE_LEVEL
-        # menghasilkan AlertLevel.NONE,
-        # sehingga tidak dipersist sebagai Alert.
-        assert payload["alert"] is None
-        assert payload["created"] is False
+    if (
+        expected_alert_level
+        is None
+    ):
+        # NORMAL + RQ <= 1
+        # → AlertLevel.NONE
+        # → no Alert row is created.
+        assert (
+            alert_evaluation["alert"]
+            is None
+        )
+
+        assert (
+            alert_evaluation["created"]
+            is False
+        )
+
+        assert (
+            alert_evaluation["duplicate"]
+            is False
+        )
+
+        assert (
+            alert_evaluation["escalated"]
+            is False
+        )
 
         assert (
             Alert.objects.filter(
@@ -344,7 +418,19 @@ def test_worker_risk_scenarios(
 
         return
 
-    alert_data = payload["alert"]
+    assert (
+        alert_evaluation["created"]
+        is True
+    )
+
+    assert (
+        alert_evaluation["duplicate"]
+        is False
+    )
+
+    alert_data = (
+        alert_evaluation["alert"]
+    )
 
     assert alert_data is not None
 
@@ -388,14 +474,18 @@ def test_worker_risk_scenarios(
 
 @pytest.mark.django_db
 def test_worker_only_sees_own_risk_data():
-    worker_a, _ = make_worker_with_exposure(
-        code="PML-OWNERSHIP-A",
-        name="Pemulung A",
+    worker_a, _ = (
+        make_worker_with_exposure(
+            code="PML-OWNERSHIP-A",
+            name="Pemulung A",
+        )
     )
 
-    worker_b, _ = make_worker_with_exposure(
-        code="PML-OWNERSHIP-B",
-        name="Pemulung B",
+    worker_b, _ = (
+        make_worker_with_exposure(
+            code="PML-OWNERSHIP-B",
+            name="Pemulung B",
+        )
     )
 
     device = make_device(
@@ -408,25 +498,31 @@ def test_worker_only_sees_own_risk_data():
         status="WARNING",
     )
 
-    _, operator = make_operator_client(
-        "ownership-operator"
+    _, operator = (
+        make_operator_client(
+            "ownership-operator"
+        )
     )
 
-    arkl_a = calculate_realtime(
+    (
+        arkl_a,
+        alert_evaluation,
+    ) = calculate_realtime(
         client=operator,
         worker=worker_a,
         device=device,
     )
 
-    alert_response = evaluate_alert(
-        client=operator,
-        arkl_result_id=arkl_a["id"],
+    assert (
+        alert_evaluation["created"]
+        is True
     )
 
-    assert (
-        alert_response.status_code
-        == 201
+    alert_data = (
+        alert_evaluation["alert"]
     )
+
+    assert alert_data is not None
 
     _, worker_a_client = (
         make_worker_client(
@@ -442,7 +538,10 @@ def test_worker_only_sees_own_risk_data():
         )
     )
 
-    # Worker A melihat hasil miliknya.
+    # --------------------------------------------------------
+    # Worker A can see only its own ARKL.
+    # --------------------------------------------------------
+
     response = worker_a_client.get(
         "/api/v1/me/arkl-results/"
     )
@@ -460,6 +559,10 @@ def test_worker_only_sees_own_risk_data():
         == arkl_a["id"]
     )
 
+    # --------------------------------------------------------
+    # Worker A can see its own Alert.
+    # --------------------------------------------------------
+
     response = worker_a_client.get(
         "/api/v1/me/alerts/"
     )
@@ -472,16 +575,33 @@ def test_worker_only_sees_own_risk_data():
 
     assert len(results) == 1
 
-    # Worker B tidak melihat data A.
+    assert (
+        results[0]["id"]
+        == alert_data["id"]
+    )
+
+    # --------------------------------------------------------
+    # Worker B cannot see Worker A ARKL.
+    # --------------------------------------------------------
+
     response = worker_b_client.get(
         "/api/v1/me/arkl-results/"
     )
 
     assert response.status_code == 200
 
-    assert len(
-        response_results(response)
-    ) == 0
+    assert (
+        len(
+            response_results(
+                response
+            )
+        )
+        == 0
+    )
+
+    # --------------------------------------------------------
+    # Worker B cannot see Worker A Alert.
+    # --------------------------------------------------------
 
     response = worker_b_client.get(
         "/api/v1/me/alerts/"
@@ -489,9 +609,14 @@ def test_worker_only_sees_own_risk_data():
 
     assert response.status_code == 200
 
-    assert len(
-        response_results(response)
-    ) == 0
+    assert (
+        len(
+            response_results(
+                response
+            )
+        )
+        == 0
+    )
 
 
 # ============================================================
@@ -540,9 +665,11 @@ def test_invalid_exposure_data_is_rejected(
         is_active=True,
     )
 
-    _, operator = make_operator_client(
-        username=(
-            f"operator-invalid-{field}"
+    _, operator = (
+        make_operator_client(
+            username=(
+                f"operator-invalid-{field}"
+            )
         )
     )
 
@@ -566,9 +693,11 @@ def test_invalid_exposure_data_is_rejected(
     assert response.status_code == 400
 
     assert (
-        ExposureProfile.objects.filter(
+        ExposureProfile.objects
+        .filter(
             worker=worker
-        ).exists()
+        )
+        .exists()
         is False
     )
 
@@ -601,9 +730,7 @@ def test_latest_sensor_reading_is_used():
 
     _, researcher = (
         make_authenticated_client(
-            username=(
-                "latest-researcher"
-            ),
+            username="latest-researcher",
             role=(
                 AccountProfile
                 .Role
@@ -620,7 +747,10 @@ def test_latest_sensor_reading_is_used():
 
     data = response.json()
 
-    assert data["id"] == second.pk
+    assert (
+        data["id"]
+        == second.pk
+    )
 
     assert (
         Decimal(
@@ -629,7 +759,10 @@ def test_latest_sensor_reading_is_used():
         == Decimal("25.4")
     )
 
-    assert data["status"] == "WARNING"
+    assert (
+        data["status"]
+        == "WARNING"
+    )
 
 
 # ============================================================
@@ -640,9 +773,11 @@ def test_latest_sensor_reading_is_used():
 
 @pytest.mark.django_db
 def test_historical_arkl_uses_mean_h2s():
-    worker, _ = make_worker_with_exposure(
-        code="PML-HIST-FEATURE",
-        name="Pemulung Historical",
+    worker, _ = (
+        make_worker_with_exposure(
+            code="PML-HIST-FEATURE",
+            name="Pemulung Historical",
+        )
     )
 
     device = make_device(
@@ -664,7 +799,9 @@ def test_historical_arkl_uses_mean_h2s():
             status="WARNING",
         )
 
-        readings.append(reading)
+        readings.append(
+            reading
+        )
 
     for index, reading in enumerate(
         readings
@@ -685,8 +822,10 @@ def test_historical_arkl_uses_mean_h2s():
             received_at=received_at
         )
 
-    _, operator = make_operator_client(
-        "historical-operator"
+    _, operator = (
+        make_operator_client(
+            "historical-operator"
+        )
     )
 
     response = operator.post(
@@ -698,7 +837,9 @@ def test_historical_arkl_uses_mean_h2s():
                 now
                 - timedelta(hours=1)
             ).isoformat(),
-            "end_time": now.isoformat(),
+            "end_time": (
+                now.isoformat()
+            ),
         },
         format="json",
     )
@@ -712,8 +853,15 @@ def test_historical_arkl_uses_mean_h2s():
         == "HISTORICAL"
     )
 
-    assert data["reading"] is None
-    assert data["reading_count"] == 3
+    assert (
+        data["reading"]
+        is None
+    )
+
+    assert (
+        data["reading_count"]
+        == 3
+    )
 
     assert (
         Decimal(
@@ -753,9 +901,13 @@ def test_historical_arkl_uses_mean_h2s():
 
 @pytest.mark.django_db
 def test_alert_lifecycle_preserves_actor_audit():
-    worker, _ = make_worker_with_exposure(
-        code="PML-LIFECYCLE-FEATURE",
-        name="Pemulung Lifecycle",
+    worker, _ = (
+        make_worker_with_exposure(
+            code=(
+                "PML-LIFECYCLE-FEATURE"
+            ),
+            name="Pemulung Lifecycle",
+        )
     )
 
     device = make_device(
@@ -774,32 +926,40 @@ def test_alert_lifecycle_preserves_actor_audit():
         )
     )
 
-    arkl = calculate_realtime(
+    (
+        _arkl,
+        alert_evaluation,
+    ) = calculate_realtime(
         client=operator,
         worker=worker,
         device=device,
     )
 
-    create_response = evaluate_alert(
-        client=operator,
-        arkl_result_id=arkl["id"],
+    assert (
+        alert_evaluation["created"]
+        is True
     )
 
-    assert (
-        create_response.status_code
-        == 201
+    alert_data = (
+        alert_evaluation["alert"]
     )
+
+    assert alert_data is not None
 
     alert_id = (
-        create_response
-        .json()["alert"]["id"]
+        alert_data["id"]
     )
+
+    # --------------------------------------------------------
+    # ACKNOWLEDGE
+    # --------------------------------------------------------
 
     acknowledge_response = (
         operator.patch(
             (
                 f"/api/v1/alerts/"
-                f"{alert_id}/acknowledge/"
+                f"{alert_id}/"
+                "acknowledge/"
             ),
             {},
             format="json",
@@ -830,11 +990,16 @@ def test_alert_lifecycle_preserves_actor_audit():
         is not None
     )
 
+    # --------------------------------------------------------
+    # RESOLVE
+    # --------------------------------------------------------
+
     resolve_response = (
         operator.patch(
             (
                 f"/api/v1/alerts/"
-                f"{alert_id}/resolve/"
+                f"{alert_id}/"
+                "resolve/"
             ),
             {},
             format="json",
@@ -877,9 +1042,11 @@ def test_alert_lifecycle_preserves_actor_audit():
 
 @pytest.mark.django_db
 def test_duplicate_alert_is_not_created_again():
-    worker, _ = make_worker_with_exposure(
-        code="PML-DUP-FEATURE",
-        name="Pemulung Duplicate",
+    worker, _ = (
+        make_worker_with_exposure(
+            code="PML-DUP-FEATURE",
+            name="Pemulung Duplicate",
+        )
     )
 
     device = make_device(
@@ -892,35 +1059,88 @@ def test_duplicate_alert_is_not_created_again():
         status="WARNING",
     )
 
-    _, operator = make_operator_client(
-        "duplicate-operator"
+    _, operator = (
+        make_operator_client(
+            "duplicate-operator"
+        )
     )
 
-    arkl = calculate_realtime(
+    # --------------------------------------------------------
+    # First realtime execution creates the Alert.
+    # --------------------------------------------------------
+
+    (
+        first_arkl,
+        first_evaluation,
+    ) = calculate_realtime(
         client=operator,
         worker=worker,
         device=device,
     )
 
-    first = evaluate_alert(
-        client=operator,
-        arkl_result_id=arkl["id"],
+    assert (
+        first_evaluation["created"]
+        is True
     )
 
-    assert first.status_code == 201
-
-    second = evaluate_alert(
-        client=operator,
-        arkl_result_id=arkl["id"],
+    assert (
+        first_evaluation["duplicate"]
+        is False
     )
 
-    assert second.status_code == 200
+    assert (
+        first_evaluation["escalated"]
+        is False
+    )
 
-    data = second.json()
+    first_alert = (
+        first_evaluation["alert"]
+    )
 
-    assert data["created"] is False
-    assert data["duplicate"] is True
-    assert data["escalated"] is False
+    assert first_alert is not None
+
+    # --------------------------------------------------------
+    # Same environmental/risk level evaluated again.
+    #
+    # A new ARKLResult may be created because calculation
+    # requests are snapshots, but Alert must be deduplicated.
+    # --------------------------------------------------------
+
+    (
+        second_arkl,
+        second_evaluation,
+    ) = calculate_realtime(
+        client=operator,
+        worker=worker,
+        device=device,
+    )
+
+    assert (
+        second_arkl["id"]
+        != first_arkl["id"]
+    )
+
+    assert (
+        second_evaluation["created"]
+        is False
+    )
+
+    assert (
+        second_evaluation["duplicate"]
+        is True
+    )
+
+    assert (
+        second_evaluation["escalated"]
+        is False
+    )
+
+    assert (
+        second_evaluation["alert"][
+            "id"
+        ]
+        == first_alert["id"]
+    )
 
     assert (
         Alert.objects.filter(
@@ -938,28 +1158,42 @@ def test_duplicate_alert_is_not_created_again():
 
 @pytest.mark.django_db
 def test_higher_risk_creates_escalated_alert():
-    worker, _ = make_worker_with_exposure(
-        code="PML-ESCALATION-FEATURE",
-        name="Pemulung Escalation",
+    worker, _ = (
+        make_worker_with_exposure(
+            code=(
+                "PML-ESCALATION-FEATURE"
+            ),
+            name="Pemulung Escalation",
+        )
     )
 
     device = make_device(
         "H2S-ESCALATION-FEATURE"
     )
 
-    # Kondisi pertama:
-    # CAUTION + WITHIN → LOW
+    # --------------------------------------------------------
+    # Initial condition:
+    #
+    # CAUTION + WITHIN_REFERENCE_LEVEL
+    # → LOW
+    # --------------------------------------------------------
+
     make_reading(
         device=device,
         ppm=Decimal("0.001"),
         status="CAUTION",
     )
 
-    _, operator = make_operator_client(
-        "escalation-operator"
+    _, operator = (
+        make_operator_client(
+            "escalation-operator"
+        )
     )
 
-    first_arkl = calculate_realtime(
+    (
+        first_arkl,
+        first_evaluation,
+    ) = calculate_realtime(
         client=operator,
         worker=worker,
         device=device,
@@ -970,39 +1204,66 @@ def test_higher_risk_creates_escalated_alert():
         == "WITHIN_REFERENCE_LEVEL"
     )
 
-    first_alert_response = (
-        evaluate_alert(
-            client=operator,
-            arkl_result_id=(
-                first_arkl["id"]
-            ),
+    assert (
+        first_evaluation["created"]
+        is True
+    )
+
+    assert (
+        first_evaluation["duplicate"]
+        is False
+    )
+
+    assert (
+        first_evaluation["escalated"]
+        is False
+    )
+
+    first_alert_data = (
+        first_evaluation["alert"]
+    )
+
+    assert first_alert_data is not None
+
+    assert (
+        first_alert_data[
+            "alert_level"
+        ]
+        == "LOW"
+    )
+
+    first_alert = (
+        Alert.objects.get(
+            pk=(
+                first_alert_data[
+                    "id"
+                ]
+            )
         )
     )
 
     assert (
-        first_alert_response.status_code
-        == 201
+        first_alert.status
+        == AlertLifecycleStatus.OPEN
     )
 
-    first_alert = (
-        first_alert_response
-        .json()["alert"]
-    )
+    # --------------------------------------------------------
+    # Condition worsens:
+    #
+    # WARNING + ABOVE_REFERENCE_LEVEL
+    # → HIGH
+    # --------------------------------------------------------
 
-    assert (
-        first_alert["alert_level"]
-        == "LOW"
-    )
-
-    # Kondisi memburuk:
-    # WARNING + ABOVE → HIGH
     make_reading(
         device=device,
         ppm=Decimal("25.4"),
         status="WARNING",
     )
 
-    second_arkl = calculate_realtime(
+    (
+        second_arkl,
+        second_evaluation,
+    ) = calculate_realtime(
         client=operator,
         worker=worker,
         device=device,
@@ -1013,47 +1274,120 @@ def test_higher_risk_creates_escalated_alert():
         == "ABOVE_REFERENCE_LEVEL"
     )
 
-    second_response = evaluate_alert(
-        client=operator,
-        arkl_result_id=(
-            second_arkl["id"]
-        ),
-    )
-
     assert (
-        second_response.status_code
-        == 201
-    )
-
-    second_payload = (
-        second_response.json()
-    )
-
-    assert (
-        second_payload["created"]
+        second_evaluation["created"]
         is True
     )
 
     assert (
-        second_payload["duplicate"]
+        second_evaluation["duplicate"]
         is False
     )
 
     assert (
-        second_payload["escalated"]
+        second_evaluation["escalated"]
         is True
     )
 
+    second_alert_data = (
+        second_evaluation["alert"]
+    )
+
     assert (
-        second_payload["alert"][
+        second_alert_data
+        is not None
+    )
+
+    assert (
+        second_alert_data[
             "alert_level"
         ]
         == "HIGH"
     )
 
+    second_alert = (
+        Alert.objects.get(
+            pk=(
+                second_alert_data[
+                    "id"
+                ]
+            )
+        )
+    )
+
+    # --------------------------------------------------------
+    # Previous LOW alert must be superseded.
+    # --------------------------------------------------------
+
+    first_alert.refresh_from_db()
+
+    assert (
+        first_alert.status
+        == AlertLifecycleStatus.RESOLVED
+    )
+
+    assert (
+        first_alert.resolved_at
+        is not None
+    )
+
+    # Internal escalation is system-driven,
+    # therefore there is no human resolver.
+    assert (
+        first_alert.resolved_by_id
+        is None
+    )
+
+    # --------------------------------------------------------
+    # New HIGH alert becomes authoritative.
+    # --------------------------------------------------------
+
+    assert (
+        second_alert.status
+        == AlertLifecycleStatus.OPEN
+    )
+
+    assert (
+        second_alert.alert_level
+        == "HIGH"
+    )
+
+    # Both snapshots remain available for audit/history.
     assert (
         Alert.objects.filter(
-            worker=worker
+            worker=worker,
+            device=device,
         ).count()
         == 2
+    )
+
+    # But exactly one Alert may remain active.
+    active_alerts = (
+        Alert.objects.filter(
+            worker=worker,
+            device=device,
+            status__in=[
+                AlertLifecycleStatus.OPEN,
+                AlertLifecycleStatus.ACKNOWLEDGED,
+            ],
+        )
+    )
+
+    assert (
+        active_alerts.count()
+        == 1
+    )
+
+    authoritative_alert = (
+        active_alerts.get()
+    )
+
+    assert (
+        authoritative_alert.pk
+        == second_alert.pk
+    )
+
+    assert (
+        authoritative_alert.alert_level
+        == "HIGH"
     )

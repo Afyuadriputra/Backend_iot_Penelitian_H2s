@@ -39,9 +39,7 @@ def create_operator_client():
     client = APIClient()
 
     client.credentials(
-        HTTP_AUTHORIZATION=(
-            f"Token {token.key}"
-        )
+        HTTP_AUTHORIZATION=f"Token {token.key}"
     )
 
     return client
@@ -66,9 +64,7 @@ def create_worker_client(worker):
     client = APIClient()
 
     client.credentials(
-        HTTP_AUTHORIZATION=(
-            f"Token {token.key}"
-        )
+        HTTP_AUTHORIZATION=f"Token {token.key}"
     )
 
     return client
@@ -77,7 +73,7 @@ def create_worker_client(worker):
 @pytest.mark.django_db
 def test_full_worker_h2s_risk_flow():
     # ========================================================
-    # STEP 1 — DATA PEMULUNG
+    # STEP 1 — WORKER + EXPOSURE
     # ========================================================
 
     worker = Worker.objects.create(
@@ -106,7 +102,7 @@ def test_full_worker_h2s_risk_flow():
     assert exposure.exposure_duration == 10
 
     # ========================================================
-    # STEP 2 — SENSOR H2S
+    # STEP 2 — DEVICE ASSIGNMENT + H₂S READING
     # ========================================================
 
     device = Device.objects.create(
@@ -114,6 +110,13 @@ def test_full_worker_h2s_risk_flow():
         name="Sensor TPA Muara Fajar",
         location="Zona Pemilahan",
         is_active=True,
+    )
+
+    worker.monitoring_device = device
+    worker.save(
+        update_fields=[
+            "monitoring_device",
+        ]
     )
 
     reading = H2SReading.objects.create(
@@ -127,12 +130,8 @@ def test_full_worker_h2s_risk_flow():
         simulated=True,
     )
 
-    assert float(reading.ppm) == 25.4
-    assert reading.status == "WARNING"
-    assert reading.simulated is True
-
     # ========================================================
-    # STEP 3 — OPERATOR MENJALANKAN ARKL
+    # STEP 3 — REALTIME ARKL + AUTOMATIC ALERT
     # ========================================================
 
     operator_client = (
@@ -150,10 +149,21 @@ def test_full_worker_h2s_risk_flow():
 
     assert response.status_code == 201
 
-    arkl_data = response.json()
+    payload = response.json()
+
+    assert "arkl_result" in payload
+    assert "alert_evaluation" in payload
+
+    arkl_data = payload[
+        "arkl_result"
+    ]
+
+    alert_evaluation = payload[
+        "alert_evaluation"
+    ]
 
     # ========================================================
-    # STEP 4 — VERIFIKASI FORMULA
+    # STEP 4 — VERIFY ARKL FORMULA
     # ========================================================
 
     expected_c = (
@@ -235,14 +245,12 @@ def test_full_worker_h2s_risk_flow():
     )
 
     assert (
-        arkl_data[
-            "calculation_version"
-        ]
+        arkl_data["calculation_version"]
         == "2.0.0-MVP"
     )
 
     # ========================================================
-    # STEP 5 — ARKL RESULT BENAR-BENAR TERSIMPAN
+    # STEP 5 — ARKL PERSISTENCE
     # ========================================================
 
     arkl_result = ARKLResult.objects.get(
@@ -254,27 +262,18 @@ def test_full_worker_h2s_risk_flow():
     assert arkl_result.source_simulated is True
 
     # ========================================================
-    # STEP 6 — ALERT EVALUATION
+    # STEP 6 — AUTOMATIC ALERT EVALUATION
     # ========================================================
 
-    response = operator_client.post(
-        "/api/v1/alerts/evaluate/",
-        {
-            "arkl_result_id": (
-                arkl_result.pk
-            ),
-        },
-        format="json",
+    assert alert_evaluation["created"] is True
+    assert alert_evaluation["duplicate"] is False
+    assert alert_evaluation["escalated"] is False
+
+    alert_data = (
+        alert_evaluation["alert"]
     )
 
-    assert response.status_code == 201
-
-    payload = response.json()
-
-    assert payload["created"] is True
-    assert payload["duplicate"] is False
-
-    alert_data = payload["alert"]
+    assert alert_data is not None
 
     assert (
         alert_data[
@@ -290,7 +289,6 @@ def test_full_worker_h2s_risk_flow():
         == "ABOVE_REFERENCE_LEVEL"
     )
 
-    # Sesuai matrix core backend saat ini:
     assert (
         alert_data["alert_level"]
         == "HIGH"
@@ -316,7 +314,7 @@ def test_full_worker_h2s_risk_flow():
     )
 
     # ========================================================
-    # STEP 7 — PERSISTENCE ALERT
+    # STEP 7 — ALERT PERSISTENCE
     # ========================================================
 
     alert = Alert.objects.get(
@@ -326,6 +324,7 @@ def test_full_worker_h2s_risk_flow():
     assert alert.worker == worker
     assert alert.device == device
     assert alert.reading == reading
+
     assert (
         alert.arkl_result
         == arkl_result
@@ -342,7 +341,7 @@ def test_full_worker_h2s_risk_flow():
     )
 
     # ========================================================
-    # STEP 9 — WORKER MELIHAT ARKL MILIK SENDIRI
+    # STEP 9 — WORKER SEES OWN ARKL
     # ========================================================
 
     response = worker_client.get(
@@ -368,7 +367,7 @@ def test_full_worker_h2s_risk_flow():
     )
 
     # ========================================================
-    # STEP 10 — WORKER MELIHAT ALERT MILIK SENDIRI
+    # STEP 10 — WORKER SEES OWN ALERT
     # ========================================================
 
     response = worker_client.get(
@@ -388,20 +387,18 @@ def test_full_worker_h2s_risk_flow():
 
     assert len(results) == 1
 
-    worker_alert = results[0]
-
     assert (
-        worker_alert["id"]
+        results[0]["id"]
         == alert.id
     )
 
     assert (
-        worker_alert["alert_level"]
+        results[0]["alert_level"]
         == "HIGH"
     )
 
     # ========================================================
-    # STEP 11 — WORKER TIDAK BOLEH MELIHAT GENERIC ALERT
+    # STEP 11 — WORKER DENIED GENERIC ALERT API
     # ========================================================
 
     response = worker_client.get(
