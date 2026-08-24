@@ -9,9 +9,31 @@ from arkl.services.calculator import (
     calculate_historical_risk,
     calculate_realtime_risk,
 )
-from arkl.services.constants import ARKL_CALCULATION_VERSION
-from devices.models import Device, H2SReading
-from exposure.models import ExposureProfile, Worker
+from arkl.services.constants import (
+    ARKL_CALCULATION_VERSION,
+)
+from devices.models import (
+    Device,
+    H2SReading,
+)
+from exposure.models import (
+    ExposureProfile,
+    Worker,
+)
+
+
+def assign_monitoring_device(
+    *,
+    worker: Worker,
+    device: Device,
+) -> None:
+    worker.monitoring_device = device
+
+    worker.save(
+        update_fields=[
+            "monitoring_device",
+        ]
+    )
 
 
 @pytest.mark.django_db
@@ -26,7 +48,7 @@ def test_realtime_risk_calculation_creates_result():
         adc=500,
         filtered_adc=500,
         level=2,
-        status="TEST",
+        status="NORMAL",
         uptime_ms=1000,
         simulated=True,
     )
@@ -44,6 +66,11 @@ def test_realtime_risk_calculation_creates_result():
         inhalation_rate=0.83,
     )
 
+    assign_monitoring_device(
+        worker=worker,
+        device=device,
+    )
+
     result = calculate_realtime_risk(
         worker=worker,
         device=device,
@@ -52,11 +79,24 @@ def test_realtime_risk_calculation_creates_result():
     assert result.pk is not None
     assert result.reading == reading
     assert result.calculation_type == "REALTIME"
-    assert result.concentration_ppm == Decimal("10")
-    assert result.concentration_mg_m3 == Decimal("14.00")
+
+    assert (
+        result.concentration_ppm
+        == Decimal("10")
+    )
+
+    assert (
+        result.concentration_mg_m3
+        == Decimal("14.00")
+    )
+
     assert result.rq > 0
     assert result.source_simulated is True
-    assert result.calculation_version == ARKL_CALCULATION_VERSION
+
+    assert (
+        result.calculation_version
+        == ARKL_CALCULATION_VERSION
+    )
 
 
 @pytest.mark.django_db
@@ -71,7 +111,7 @@ def test_realtime_uses_latest_reading():
         adc=100,
         filtered_adc=100,
         level=1,
-        status="TEST",
+        status="NORMAL",
         uptime_ms=1000,
         simulated=True,
     )
@@ -82,7 +122,7 @@ def test_realtime_uses_latest_reading():
         adc=200,
         filtered_adc=200,
         level=2,
-        status="TEST",
+        status="WARNING",
         uptime_ms=2000,
         simulated=True,
     )
@@ -100,13 +140,22 @@ def test_realtime_uses_latest_reading():
         inhalation_rate=0.83,
     )
 
+    assign_monitoring_device(
+        worker=worker,
+        device=device,
+    )
+
     result = calculate_realtime_risk(
         worker=worker,
         device=device,
     )
 
     assert result.reading == latest
-    assert result.concentration_ppm == Decimal("20")
+
+    assert (
+        result.concentration_ppm
+        == Decimal("20")
+    )
 
 
 @pytest.mark.django_db
@@ -121,7 +170,7 @@ def test_realtime_requires_exposure_profile():
         adc=100,
         filtered_adc=100,
         level=1,
-        status="TEST",
+        status="NORMAL",
         uptime_ms=1000,
         simulated=True,
     )
@@ -170,6 +219,91 @@ def test_realtime_requires_reading():
 
 
 @pytest.mark.django_db
+def test_realtime_requires_monitoring_device_assignment():
+    device = Device.objects.create(
+        device_code="H2S-NO-ASSIGNMENT",
+    )
+
+    H2SReading.objects.create(
+        device=device,
+        ppm=10,
+        adc=100,
+        filtered_adc=100,
+        level=1,
+        status="NORMAL",
+        uptime_ms=1000,
+        simulated=True,
+    )
+
+    worker = Worker.objects.create(
+        code="PML-NO-ASSIGNMENT",
+    )
+
+    ExposureProfile.objects.create(
+        worker=worker,
+        body_weight=55,
+        exposure_time=8,
+        exposure_frequency=250,
+        exposure_duration=10,
+        inhalation_rate=0.83,
+    )
+
+    with pytest.raises(
+        ARKLCalculationError,
+        match="assigned monitoring device",
+    ):
+        calculate_realtime_risk(
+            worker=worker,
+            device=device,
+        )
+
+
+@pytest.mark.django_db
+def test_realtime_rejects_different_monitoring_device():
+    assigned_device = Device.objects.create(
+        device_code="H2S-ASSIGNED-001",
+    )
+
+    requested_device = Device.objects.create(
+        device_code="H2S-REQUESTED-001",
+    )
+
+    H2SReading.objects.create(
+        device=requested_device,
+        ppm=10,
+        adc=100,
+        filtered_adc=100,
+        level=1,
+        status="NORMAL",
+        uptime_ms=1000,
+        simulated=True,
+    )
+
+    worker = Worker.objects.create(
+        code="PML-WRONG-DEVICE",
+        monitoring_device=assigned_device,
+    )
+
+    ExposureProfile.objects.create(
+        worker=worker,
+        body_weight=55,
+        exposure_time=8,
+        exposure_frequency=250,
+        exposure_duration=10,
+        inhalation_rate=0.83,
+    )
+
+    with pytest.raises(
+        ARKLCalculationError,
+        match="Device is not assigned to this worker",
+    ):
+        calculate_realtime_risk(
+            worker=worker,
+            device=requested_device,
+        )
+
+
+@pytest.mark.django_db
 def test_historical_risk_uses_mean_concentration():
     device = Device.objects.create(
         device_code="H2S-HIST-001",
@@ -198,13 +332,16 @@ def test_historical_risk_uses_mean_concentration():
             adc=100,
             filtered_adc=100,
             level=1,
-            status="TEST",
+            status="NORMAL",
             uptime_ms=1000,
             simulated=True,
         )
+
         readings.append(reading)
 
-    for index, reading in enumerate(readings):
+    for index, reading in enumerate(
+        readings
+    ):
         timestamp = now - timedelta(
             minutes=30 - (index * 10)
         )
@@ -218,31 +355,48 @@ def test_historical_risk_uses_mean_concentration():
     result = calculate_historical_risk(
         worker=worker,
         device=device,
-        period_start=now - timedelta(hours=1),
+        period_start=(
+            now - timedelta(hours=1)
+        ),
         period_end=now,
     )
 
     assert result.pk is not None
-
-    # Historical result tidak terkait satu reading tertentu,
-    # karena memakai rata-rata beberapa reading.
     assert result.reading is None
-
     assert result.calculation_type == "HISTORICAL"
     assert result.reading_count == 3
 
-    assert result.concentration_ppm == Decimal("20")
-    assert result.concentration_mg_m3 == Decimal("28.00")
+    assert (
+        result.concentration_ppm
+        == Decimal("20")
+    )
 
-    # ARKL v2 intake-based.
-    assert result.exposure_concentration_mg_m3 is None
-    assert result.averaging_time == Decimal("3650")
+    assert (
+        result.concentration_mg_m3
+        == Decimal("28.00")
+    )
+
+    assert (
+        result.exposure_concentration_mg_m3
+        is None
+    )
+
+    assert (
+        result.averaging_time
+        == Decimal("3650")
+    )
+
     assert result.intake is not None
     assert result.intake > 0
     assert result.rq > 0
 
     assert result.source_simulated is True
-    assert result.calculation_version == "2.0.0-MVP"
+
+    assert (
+        result.calculation_version
+        == "2.0.0-MVP"
+    )
+
 
 @pytest.mark.django_db
 def test_historical_requires_readings():
@@ -272,7 +426,9 @@ def test_historical_requires_readings():
         calculate_historical_risk(
             worker=worker,
             device=device,
-            period_start=now - timedelta(hours=1),
+            period_start=(
+                now - timedelta(hours=1)
+            ),
             period_end=now,
         )
 
@@ -314,7 +470,7 @@ def test_realtime_rejects_inactive_device():
         adc=100,
         filtered_adc=100,
         level=1,
-        status="TEST",
+        status="NORMAL",
         uptime_ms=1000,
         simulated=True,
     )
