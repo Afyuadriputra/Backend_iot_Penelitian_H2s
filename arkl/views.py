@@ -1,4 +1,6 @@
-from drf_spectacular.utils import extend_schema
+from drf_spectacular.utils import (
+    extend_schema,
+)
 from rest_framework import status
 from rest_framework.generics import (
     ListAPIView,
@@ -14,16 +16,23 @@ from accounts.permissions import (
     IsAdminOperatorOrResearcher,
     IsAdminOrOperator,
 )
+from alerts.serializers import (
+    AlertEvaluationResponseSerializer,
+)
 from arkl.models import ARKLResult
 from arkl.serializers import (
     ARKLResultSerializer,
     HistoricalARKLRequestSerializer,
     RealtimeARKLRequestSerializer,
+    RealtimeARKLResponseSerializer,
 )
 from arkl.services.calculator import (
     ARKLCalculationError,
     calculate_historical_risk,
-    calculate_realtime_risk,
+)
+from arkl.services.realtime import (
+    RealtimeARKLError,
+    run_realtime_arkl,
 )
 
 
@@ -44,12 +53,21 @@ class RealtimeARKLView(APIView):
     ]
 
     @extend_schema(
-        request=RealtimeARKLRequestSerializer,
+        request=(
+            RealtimeARKLRequestSerializer
+        ),
         responses={
-            201: ARKLResultSerializer,
+            201: (
+                RealtimeARKLResponseSerializer
+            ),
         },
-        tags=["ARKL"],
-        summary="Calculate realtime ARKL risk",
+        tags=[
+            "ARKL",
+        ],
+        summary=(
+            "Calculate realtime ARKL risk "
+            "and evaluate alert"
+        ),
     )
     def post(
         self,
@@ -66,33 +84,53 @@ class RealtimeARKLView(APIView):
         )
 
         try:
-            result = calculate_realtime_risk(
-                worker=(
-                    serializer.validated_data[
-                        "worker"
-                    ]
-                ),
-                device=(
-                    serializer.validated_data[
-                        "device"
-                    ]
-                ),
+            result = (
+                run_realtime_arkl(
+                    worker=(
+                        serializer
+                        .validated_data[
+                            "worker"
+                        ]
+                    ),
+                    device=(
+                        serializer
+                        .validated_data[
+                            "device"
+                        ]
+                    ),
+                )
             )
-        except ARKLCalculationError as exc:
+        except RealtimeARKLError as exc:
             return Response(
                 {
                     "detail": str(exc),
                 },
                 status=(
-                    status.HTTP_400_BAD_REQUEST
+                    status
+                    .HTTP_400_BAD_REQUEST
                 ),
             )
 
+
+        response_data = {
+            "arkl_result": (
+                ARKLResultSerializer(
+                    result.arkl_result
+                ).data
+            ),
+            "alert_evaluation": (
+                AlertEvaluationResponseSerializer(
+                    result.alert_evaluation
+                ).data
+            ),
+        }
+
+
         return Response(
-            ARKLResultSerializer(
-                result
-            ).data,
-            status=status.HTTP_201_CREATED,
+            response_data,
+            status=(
+                status.HTTP_201_CREATED
+            ),
         )
 
 
@@ -103,12 +141,18 @@ class HistoricalARKLView(APIView):
     ]
 
     @extend_schema(
-        request=HistoricalARKLRequestSerializer,
+        request=(
+            HistoricalARKLRequestSerializer
+        ),
         responses={
             201: ARKLResultSerializer,
         },
-        tags=["ARKL"],
-        summary="Calculate historical ARKL risk",
+        tags=[
+            "ARKL",
+        ],
+        summary=(
+            "Calculate historical ARKL risk"
+        ),
     )
     def post(
         self,
@@ -125,27 +169,33 @@ class HistoricalARKLView(APIView):
         )
 
         try:
-            result = calculate_historical_risk(
-                worker=(
-                    serializer.validated_data[
-                        "worker"
-                    ]
-                ),
-                device=(
-                    serializer.validated_data[
-                        "device"
-                    ]
-                ),
-                period_start=(
-                    serializer.validated_data[
-                        "start_time"
-                    ]
-                ),
-                period_end=(
-                    serializer.validated_data[
-                        "end_time"
-                    ]
-                ),
+            result = (
+                calculate_historical_risk(
+                    worker=(
+                        serializer
+                        .validated_data[
+                            "worker"
+                        ]
+                    ),
+                    device=(
+                        serializer
+                        .validated_data[
+                            "device"
+                        ]
+                    ),
+                    period_start=(
+                        serializer
+                        .validated_data[
+                            "start_time"
+                        ]
+                    ),
+                    period_end=(
+                        serializer
+                        .validated_data[
+                            "end_time"
+                        ]
+                    ),
+                )
             )
         except ARKLCalculationError as exc:
             return Response(
@@ -153,7 +203,8 @@ class HistoricalARKLView(APIView):
                     "detail": str(exc),
                 },
                 status=(
-                    status.HTTP_400_BAD_REQUEST
+                    status
+                    .HTTP_400_BAD_REQUEST
                 ),
             )
 
@@ -161,18 +212,26 @@ class HistoricalARKLView(APIView):
             ARKLResultSerializer(
                 result
             ).data,
-            status=status.HTTP_201_CREATED,
+            status=(
+                status.HTTP_201_CREATED
+            ),
         )
 
 
 @extend_schema(
-    tags=["ARKL"],
-    summary="List ARKL results",
+    tags=[
+        "ARKL",
+    ],
+    summary=(
+        "List ARKL results"
+    ),
 )
 class ARKLResultListView(
     ListAPIView
 ):
-    serializer_class = ARKLResultSerializer
+    serializer_class = (
+        ARKLResultSerializer
+    )
 
     permission_classes = [
         IsAuthenticated,
@@ -181,44 +240,65 @@ class ARKLResultListView(
 
     def get_queryset(self):
         queryset = (
-            ARKL_RESULT_QUERYSET.all()
+            ARKL_RESULT_QUERYSET
+            .all()
         )
 
         worker_code = (
-            self.request.query_params.get(
+            self.request
+            .query_params
+            .get(
                 "worker_code"
             )
         )
 
         calculation_type = (
-            self.request.query_params.get(
+            self.request
+            .query_params
+            .get(
                 "calculation_type"
             )
         )
 
         if worker_code:
-            queryset = queryset.filter(
-                worker__code=worker_code
+            queryset = (
+                queryset.filter(
+                    worker__code=(
+                        worker_code
+                    )
+                )
             )
 
         if calculation_type:
-            queryset = queryset.filter(
-                calculation_type=calculation_type
+            queryset = (
+                queryset.filter(
+                    calculation_type=(
+                        calculation_type
+                    )
+                )
             )
 
         return queryset
 
 
 @extend_schema(
-    tags=["ARKL"],
-    summary="Retrieve ARKL result",
+    tags=[
+        "ARKL",
+    ],
+    summary=(
+        "Retrieve ARKL result"
+    ),
 )
 class ARKLResultDetailView(
     RetrieveAPIView
 ):
-    queryset = ARKL_RESULT_QUERYSET.all()
+    queryset = (
+        ARKL_RESULT_QUERYSET.all()
+    )
 
-    serializer_class = ARKLResultSerializer
+    serializer_class = (
+        ARKLResultSerializer
+    )
 
     permission_classes = [
         IsAuthenticated,
