@@ -341,7 +341,7 @@ paths:
   /api/v1/arkl/realtime/:
     post:
       operationId: v1_arkl_realtime_create
-      summary: Calculate realtime ARKL risk
+      summary: Calculate realtime ARKL risk and evaluate alert
       tags:
       - ARKL
       requestBody:
@@ -364,7 +364,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/ARKLResult'
+                $ref: '#/components/schemas/RealtimeARKLResponse'
           description: ''
   /api/v1/arkl/results/:
     get:
@@ -487,6 +487,32 @@ paths:
               schema:
                 $ref: '#/components/schemas/PaginatedDeviceList'
           description: ''
+    post:
+      operationId: v1_devices_create
+      tags:
+      - v1
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Device'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/Device'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/Device'
+        required: true
+      security:
+      - tokenAuth: []
+      - cookieAuth: []
+      responses:
+        '201':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Device'
+          description: ''
   /api/v1/devices/{id}/:
     get:
       operationId: v1_devices_retrieve
@@ -499,6 +525,38 @@ paths:
         required: true
       tags:
       - v1
+      security:
+      - tokenAuth: []
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Device'
+          description: ''
+    patch:
+      operationId: v1_devices_partial_update
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        description: A unique integer value identifying this device.
+        required: true
+      tags:
+      - v1
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PatchedDevice'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/PatchedDevice'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/PatchedDevice'
       security:
       - tokenAuth: []
       - cookieAuth: []
@@ -2321,6 +2379,31 @@ components:
           type: array
           items:
             $ref: '#/components/schemas/Worker'
+    PatchedDevice:
+      type: object
+      properties:
+        id:
+          type: integer
+          readOnly: true
+        device_code:
+          type: string
+          maxLength: 100
+        name:
+          type: string
+          maxLength: 150
+        location:
+          type: string
+          maxLength: 255
+        is_active:
+          type: boolean
+        created_at:
+          type: string
+          format: date-time
+          readOnly: true
+        updated_at:
+          type: string
+          format: date-time
+          readOnly: true
     PatchedExposureProfile:
       type: object
       properties:
@@ -2509,6 +2592,19 @@ components:
       required:
       - device
       - worker
+    RealtimeARKLResponse:
+      type: object
+      description: |-
+        Response from one realtime ARKL
+        orchestration request.
+      properties:
+        arkl_result:
+          $ref: '#/components/schemas/ARKLResult'
+        alert_evaluation:
+          $ref: '#/components/schemas/AlertEvaluationResponse'
+      required:
+      - alert_evaluation
+      - arkl_result
     RiskDistribution:
       type: object
       properties:
