@@ -12,11 +12,6 @@ class Worker(models.Model):
         db_index=True,
     )
 
-    # Nullable temporarily for backward compatibility with
-    # existing historical/test Worker records.
-    #
-    # New Worker creation through the REST API requires
-    # both name and age in WorkerSerializer.
     name = models.CharField(
         max_length=150,
         null=True,
@@ -41,6 +36,18 @@ class Worker(models.Model):
         default=True,
     )
 
+    monitoring_device = models.ForeignKey(
+        "devices.Device",
+        on_delete=models.SET_NULL,
+        related_name="monitored_workers",
+        null=True,
+        blank=True,
+        help_text=(
+            "Perangkat H2S yang digunakan untuk "
+            "monitoring lingkungan pemulung."
+        ),
+    )
+
     created_at = models.DateTimeField(
         auto_now_add=True,
     )
@@ -57,7 +64,6 @@ class Worker(models.Model):
             return f"{self.code} - {self.name}"
 
         return self.code
-
 
 class ExposureProfile(models.Model):
     worker = models.OneToOneField(

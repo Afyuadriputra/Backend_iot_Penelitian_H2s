@@ -9,6 +9,7 @@ from accounts.views import (
     MyARKLResultListView,
     MyExposureView,
     MyProfileView,
+    MyMonitoringView,
 )
 
 
@@ -57,5 +58,10 @@ urlpatterns = [
         "me/alerts/",
         MyAlertListView.as_view(),
         name="my-alerts",
+    ),
+    path(
+        "me/monitoring/",
+        MyMonitoringView.as_view(),
+        name="my-monitoring",
     ),
 ]

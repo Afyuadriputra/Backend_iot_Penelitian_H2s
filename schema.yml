@@ -685,6 +685,21 @@ paths:
               schema:
                 $ref: '#/components/schemas/MyExposureProfile'
           description: ''
+  /api/v1/me/monitoring/:
+    get:
+      operationId: v1_me_monitoring_retrieve
+      tags:
+      - v1
+      security:
+      - tokenAuth: []
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MyMonitoring'
+          description: ''
   /api/v1/me/profile/:
     get:
       operationId: v1_me_profile_retrieve
@@ -1155,6 +1170,38 @@ paths:
         required: true
       tags:
       - v1
+      security:
+      - tokenAuth: []
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Worker'
+          description: ''
+    patch:
+      operationId: v1_workers_partial_update
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        description: A unique integer value identifying this worker.
+        required: true
+      tags:
+      - v1
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PatchedWorker'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/PatchedWorker'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/PatchedWorker'
       security:
       - tokenAuth: []
       - cookieAuth: []
@@ -2073,6 +2120,21 @@ components:
       - updated_at
       - worker_code
       - worker_name
+    MyMonitoring:
+      type: object
+      properties:
+        device:
+          allOf:
+          - $ref: '#/components/schemas/Device'
+          readOnly: true
+        reading:
+          allOf:
+          - $ref: '#/components/schemas/H2SReading'
+          readOnly: true
+          nullable: true
+      required:
+      - device
+      - reading
     MyWorkerProfile:
       type: object
       properties:
@@ -2092,6 +2154,18 @@ components:
         is_active:
           type: boolean
           readOnly: true
+        monitoring_device_code:
+          type: string
+          readOnly: true
+          nullable: true
+        monitoring_device_name:
+          type: string
+          readOnly: true
+          nullable: true
+        monitoring_device_location:
+          type: string
+          readOnly: true
+          nullable: true
         created_at:
           type: string
           format: date-time
@@ -2105,6 +2179,9 @@ components:
       - created_at
       - id
       - is_active
+      - monitoring_device_code
+      - monitoring_device_location
+      - monitoring_device_name
       - updated_at
     PaginatedARKLResultList:
       type: object
@@ -2361,6 +2438,59 @@ components:
         is_active:
           type: boolean
           readOnly: true
+        monitoring_device_code:
+          type: string
+          readOnly: true
+          nullable: true
+        monitoring_device_name:
+          type: string
+          readOnly: true
+          nullable: true
+        monitoring_device_location:
+          type: string
+          readOnly: true
+          nullable: true
+        created_at:
+          type: string
+          format: date-time
+          readOnly: true
+        updated_at:
+          type: string
+          format: date-time
+          readOnly: true
+    PatchedWorker:
+      type: object
+      properties:
+        id:
+          type: integer
+          readOnly: true
+        code:
+          type: string
+          maxLength: 50
+        name:
+          type: string
+          maxLength: 150
+        age:
+          type: integer
+          maximum: 120
+          minimum: 1
+        is_active:
+          type: boolean
+        monitoring_device:
+          type: integer
+          nullable: true
+        monitoring_device_code:
+          type: string
+          readOnly: true
+          nullable: true
+        monitoring_device_name:
+          type: string
+          readOnly: true
+          nullable: true
+        monitoring_device_location:
+          type: string
+          readOnly: true
+          nullable: true
         created_at:
           type: string
           format: date-time
@@ -2460,6 +2590,21 @@ components:
           minimum: 1
         is_active:
           type: boolean
+        monitoring_device:
+          type: integer
+          nullable: true
+        monitoring_device_code:
+          type: string
+          readOnly: true
+          nullable: true
+        monitoring_device_name:
+          type: string
+          readOnly: true
+          nullable: true
+        monitoring_device_location:
+          type: string
+          readOnly: true
+          nullable: true
         created_at:
           type: string
           format: date-time
@@ -2473,6 +2618,9 @@ components:
       - code
       - created_at
       - id
+      - monitoring_device_code
+      - monitoring_device_location
+      - monitoring_device_name
       - name
       - updated_at
   securitySchemes:

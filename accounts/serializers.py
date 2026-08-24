@@ -2,6 +2,12 @@ from django.contrib.auth import (
     authenticate,
     get_user_model,
 )
+
+from devices.serializers import (
+    DeviceSerializer,
+    H2SReadingSerializer,
+)
+
 from django.contrib.auth.password_validation import (
     validate_password,
 )
@@ -289,6 +295,32 @@ class MyWorkerProfileSerializer(
         max_value=120,
     )
 
+    monitoring_device_code = (
+        serializers.CharField(
+            source=(
+                "monitoring_device.device_code"
+            ),
+            read_only=True,
+            allow_null=True,
+        )
+    )
+
+    monitoring_device_name = (
+        serializers.CharField(
+            source="monitoring_device.name",
+            read_only=True,
+            allow_null=True,
+        )
+    )
+
+    monitoring_device_location = (
+        serializers.CharField(
+            source="monitoring_device.location",
+            read_only=True,
+            allow_null=True,
+        )
+    )
+
     class Meta:
         model = Worker
 
@@ -298,6 +330,9 @@ class MyWorkerProfileSerializer(
             "name",
             "age",
             "is_active",
+            "monitoring_device_code",
+            "monitoring_device_name",
+            "monitoring_device_location",
             "created_at",
             "updated_at",
         ]
@@ -306,6 +341,9 @@ class MyWorkerProfileSerializer(
             "id",
             "code",
             "is_active",
+            "monitoring_device_code",
+            "monitoring_device_name",
+            "monitoring_device_location",
             "created_at",
             "updated_at",
         ]
@@ -416,3 +454,15 @@ class MyExposureProfileSerializer(
             ) from exc
 
         return attrs
+
+class MyMonitoringSerializer(
+    serializers.Serializer
+):
+    device = DeviceSerializer(
+        read_only=True,
+    )
+
+    reading = H2SReadingSerializer(
+        read_only=True,
+        allow_null=True,
+    )

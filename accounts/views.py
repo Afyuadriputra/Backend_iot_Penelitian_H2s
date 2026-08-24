@@ -27,7 +27,9 @@ from accounts.serializers import (
     LoginSerializer,
     MyExposureProfileSerializer,
     MyWorkerProfileSerializer,
+    MyMonitoringSerializer,
 )
+from devices.models import H2SReading
 from alerts.models import Alert
 from alerts.serializers import AlertSerializer
 from arkl.models import ARKLResult
@@ -455,6 +457,59 @@ class MyAlertListView(
         serializer = AlertSerializer(
             queryset,
             many=True,
+        )
+
+        return Response(
+            serializer.data,
+            status=status.HTTP_200_OK,
+        )
+
+class MyMonitoringView(
+    WorkerRequiredMixin,
+    APIView,
+):
+    permission_classes = [
+        IsAuthenticated,
+        IsWorkerRole,
+    ]
+
+    @extend_schema(
+        responses={
+            200: MyMonitoringSerializer,
+        },
+    )
+    def get(self, request):
+        worker = self.get_worker()
+
+        device = worker.monitoring_device
+
+        if device is None:
+            raise NotFound(
+                "Monitoring device not assigned."
+            )
+
+        reading = (
+            H2SReading.objects
+            .filter(
+                device=device
+            )
+            .select_related(
+                "device"
+            )
+            .order_by(
+                "-received_at",
+                "-id",
+            )
+            .first()
+        )
+
+        serializer = (
+            MyMonitoringSerializer(
+                {
+                    "device": device,
+                    "reading": reading,
+                }
+            )
         )
 
         return Response(

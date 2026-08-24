@@ -4,7 +4,7 @@ from django.core.exceptions import ValidationError
 from django.db import IntegrityError
 from rest_framework.authtoken.models import Token
 from rest_framework.test import APIClient
-
+from devices.models import Device
 from accounts.models import AccountProfile
 from exposure.models import ExposureProfile, Worker
 from exposure.services.validation import (
@@ -1002,3 +1002,143 @@ def test_researcher_cannot_access_workers_admin_api():
     )
 
     assert response.status_code == 403    
+
+
+# ============================================================
+# WORKER MONITORING DEVICE ASSIGNMENT
+# ============================================================
+
+
+@pytest.mark.django_db
+def test_operator_can_assign_monitoring_device_to_worker(
+    operator_api_client,
+):
+    worker = Worker.objects.create(
+        code="PML-MONITOR-001",
+        name="Ahmad",
+        age=40,
+    )
+
+    device = Device.objects.create(
+        device_code="H2S-MONITOR-001",
+        name="Sensor Zona A",
+        location="Zona A",
+        is_active=True,
+    )
+
+    response = operator_api_client.patch(
+        f"/api/v1/workers/{worker.pk}/",
+        {
+            "monitoring_device": device.pk,
+        },
+        format="json",
+    )
+
+    assert response.status_code == 200
+
+    worker.refresh_from_db()
+
+    assert (
+        worker.monitoring_device_id
+        == device.pk
+    )
+
+    data = response.json()
+
+    assert (
+        data["monitoring_device"]
+        == device.pk
+    )
+
+    assert (
+        data["monitoring_device_code"]
+        == "H2S-MONITOR-001"
+    )
+
+    assert (
+        data["monitoring_device_name"]
+        == "Sensor Zona A"
+    )
+
+    assert (
+        data["monitoring_device_location"]
+        == "Zona A"
+    )
+
+
+@pytest.mark.django_db
+def test_operator_can_remove_worker_monitoring_device(
+    operator_api_client,
+):
+    device = Device.objects.create(
+        device_code="H2S-MONITOR-REMOVE",
+        name="Sensor Zona B",
+        location="Zona B",
+        is_active=True,
+    )
+
+    worker = Worker.objects.create(
+        code="PML-MONITOR-REMOVE",
+        name="Budi",
+        age=39,
+        monitoring_device=device,
+    )
+
+    response = operator_api_client.patch(
+        f"/api/v1/workers/{worker.pk}/",
+        {
+            "monitoring_device": None,
+        },
+        format="json",
+    )
+
+    assert response.status_code == 200
+
+    worker.refresh_from_db()
+
+    assert (
+        worker.monitoring_device
+        is None
+    )
+
+    assert (
+        response.json()[
+            "monitoring_device"
+        ]
+        is None
+    )
+
+
+@pytest.mark.django_db
+def test_inactive_device_cannot_be_assigned_to_worker(
+    operator_api_client,
+):
+    worker = Worker.objects.create(
+        code="PML-MONITOR-INACTIVE",
+        name="Sudirman",
+        age=44,
+    )
+
+    device = Device.objects.create(
+        device_code="H2S-INACTIVE-001",
+        name="Sensor Tidak Aktif",
+        location="Zona C",
+        is_active=False,
+    )
+
+    response = operator_api_client.patch(
+        f"/api/v1/workers/{worker.pk}/",
+        {
+            "monitoring_device": device.pk,
+        },
+        format="json",
+    )
+
+    assert response.status_code == 400
+
+    worker.refresh_from_db()
+
+    assert (
+        worker.monitoring_device
+        is None
+    )

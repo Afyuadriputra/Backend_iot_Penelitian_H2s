@@ -1,5 +1,6 @@
 from rest_framework import serializers
 
+from devices.models import Device
 from exposure.models import (
     ExposureProfile,
     Worker,
@@ -25,6 +26,42 @@ class WorkerSerializer(
         max_value=120,
     )
 
+    monitoring_device = (
+        serializers.PrimaryKeyRelatedField(
+            queryset=Device.objects.filter(
+                is_active=True
+            ),
+            required=False,
+            allow_null=True,
+        )
+    )
+
+    monitoring_device_code = (
+        serializers.CharField(
+            source=(
+                "monitoring_device.device_code"
+            ),
+            read_only=True,
+            allow_null=True,
+        )
+    )
+
+    monitoring_device_name = (
+        serializers.CharField(
+            source="monitoring_device.name",
+            read_only=True,
+            allow_null=True,
+        )
+    )
+
+    monitoring_device_location = (
+        serializers.CharField(
+            source="monitoring_device.location",
+            read_only=True,
+            allow_null=True,
+        )
+    )
+
     class Meta:
         model = Worker
 
@@ -34,12 +71,19 @@ class WorkerSerializer(
             "name",
             "age",
             "is_active",
+            "monitoring_device",
+            "monitoring_device_code",
+            "monitoring_device_name",
+            "monitoring_device_location",
             "created_at",
             "updated_at",
         ]
 
         read_only_fields = [
             "id",
+            "monitoring_device_code",
+            "monitoring_device_name",
+            "monitoring_device_location",
             "created_at",
             "updated_at",
         ]
@@ -56,7 +100,6 @@ class WorkerSerializer(
             )
 
         return value
-
 
 class ExposureProfileSerializer(
     serializers.ModelSerializer

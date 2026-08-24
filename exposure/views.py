@@ -23,6 +23,7 @@ class WorkerViewSet(
     mixins.CreateModelMixin,
     mixins.ListModelMixin,
     mixins.RetrieveModelMixin,
+    mixins.UpdateModelMixin,
     viewsets.GenericViewSet,
 ):
     queryset = Worker.objects.all()
@@ -31,6 +32,14 @@ class WorkerViewSet(
     permission_classes = [
         IsAuthenticated,
         IsAdminOrOperator,
+    ]
+
+    http_method_names = [
+        "get",
+        "post",
+        "patch",
+        "head",
+        "options",
     ]
 
 
