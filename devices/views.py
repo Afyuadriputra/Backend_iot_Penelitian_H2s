@@ -1,4 +1,5 @@
 from rest_framework import (
+    mixins,
     status,
     viewsets,
 )
@@ -10,6 +11,7 @@ from rest_framework.response import Response
 
 from accounts.permissions import (
     IsAdminOperatorOrResearcher,
+    OperationalOrReadOnlyResearcher,
 )
 from devices.models import (
     Device,
@@ -22,14 +24,26 @@ from devices.serializers import (
 
 
 class DeviceViewSet(
-    viewsets.ReadOnlyModelViewSet
+    mixins.CreateModelMixin,
+    mixins.ListModelMixin,
+    mixins.RetrieveModelMixin,
+    mixins.UpdateModelMixin,
+    viewsets.GenericViewSet,
 ):
     queryset = Device.objects.all()
     serializer_class = DeviceSerializer
 
     permission_classes = [
         IsAuthenticated,
-        IsAdminOperatorOrResearcher,
+        OperationalOrReadOnlyResearcher,
+    ]
+
+    http_method_names = [
+        "get",
+        "post",
+        "patch",
+        "head",
+        "options",
     ]
 
 
