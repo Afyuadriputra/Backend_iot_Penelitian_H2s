@@ -15,8 +15,12 @@ from arkl.models import ARKLResult
 from arkl.services.calculator import (
     ARKLCalculationError,
     calculate_realtime_risk,
+    calculate_realtime_risk_from_reading,
 )
-from devices.models import Device
+from devices.models import (
+    Device,
+    H2SReading,
+)
 from exposure.models import Worker
 
 
@@ -40,13 +44,11 @@ def run_realtime_arkl(
     device: Device,
 ) -> RealtimeARKLExecutionResult:
     """
-    Canonical realtime ARKL workflow.
+    Canonical realtime ARKL workflow for an
+    explicit application/API request.
 
-    1. Validate and calculate ARKL.
-    2. Persist ARKLResult.
-    3. Evaluate deterministic Alert rules.
-    4. Persist Alert lifecycle decision.
-    5. Commit both as one application action.
+    The calculator uses the latest available
+    reading from the requested Device.
     """
     try:
         arkl_result = (
@@ -58,11 +60,10 @@ def run_realtime_arkl(
 
         alert_evaluation = (
             evaluate_realtime_arkl_alert(
-                arkl_result=(
-                    arkl_result
-                )
+                arkl_result=arkl_result
             )
         )
+
     except (
         ARKLCalculationError,
         AlertValidationError,
@@ -71,11 +72,53 @@ def run_realtime_arkl(
             str(exc)
         ) from exc
 
-    return (
-        RealtimeARKLExecutionResult(
-            arkl_result=arkl_result,
-            alert_evaluation=(
-                alert_evaluation
-            ),
+    return RealtimeARKLExecutionResult(
+        arkl_result=arkl_result,
+        alert_evaluation=(
+            alert_evaluation
+        ),
+    )
+
+
+@transaction.atomic
+def run_realtime_arkl_for_reading(
+    *,
+    worker: Worker,
+    reading: H2SReading,
+) -> RealtimeARKLExecutionResult:
+    """
+    Canonical automatic realtime workflow for
+    one exact persisted H2SReading.
+
+    Used by MQTT automatic orchestration so the
+    ARKL snapshot always references the exact
+    reading that triggered the calculation.
+    """
+    try:
+        arkl_result = (
+            calculate_realtime_risk_from_reading(
+                worker=worker,
+                reading=reading,
+            )
         )
+
+        alert_evaluation = (
+            evaluate_realtime_arkl_alert(
+                arkl_result=arkl_result
+            )
+        )
+
+    except (
+        ARKLCalculationError,
+        AlertValidationError,
+    ) as exc:
+        raise RealtimeARKLError(
+            str(exc)
+        ) from exc
+
+    return RealtimeARKLExecutionResult(
+        arkl_result=arkl_result,
+        alert_evaluation=(
+            alert_evaluation
+        ),
     )
