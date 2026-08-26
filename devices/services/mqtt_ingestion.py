@@ -10,6 +10,10 @@ from devices.services.telemetry import (
     validate_telemetry_payload,
 )
 
+from arkl.services.automatic import (
+    process_reading_for_assigned_workers,
+)
+
 logger = logging.getLogger("smart_h2s.mqtt")
 
 
@@ -93,5 +97,40 @@ def ingest_mqtt_message(
         telemetry.simulated,
         created,
     )
+
+    try:
+        processing_result = (
+            process_reading_for_assigned_workers(
+                reading=reading
+            )
+        )
+
+    except Exception:
+        logger.exception(
+            (
+                "mqtt_automatic_arkl_unexpected_error "
+                "reading_id=%s "
+                "device=%s"
+            ),
+            reading.pk,
+            telemetry.device_id,
+        )
+
+    else:
+        logger.info(
+            (
+             "mqtt_automatic_arkl_finished "
+             "reading_id=%s "
+             "processed=%s "
+             "succeeded=%s "
+             "skipped=%s "
+             "failed=%s"
+            ),
+            reading.pk,
+            processing_result.processed,
+            processing_result.succeeded,
+            processing_result.skipped,
+            processing_result.failed,
+        )
 
     return reading
