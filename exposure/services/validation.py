@@ -22,6 +22,15 @@ def validate_exposure_data(
     exposure_duration: float,
     inhalation_rate: float,
 ) -> ExposureData:
+    """
+    Validate complete exposure parameters.
+
+    inhalation_rate remains part of domain
+    validation because ARKL calculations require
+    it, but API clients must not determine this
+    value directly. The value is supplied by the
+    approved inhalation methodology resolver.
+    """
     values = {
         "body_weight": body_weight,
         "exposure_time": exposure_time,
@@ -31,7 +40,9 @@ def validate_exposure_data(
         "exposure_duration": (
             exposure_duration
         ),
-        "inhalation_rate": inhalation_rate,
+        "inhalation_rate": (
+            inhalation_rate
+        ),
     }
 
     for name, value in values.items():
@@ -84,7 +95,9 @@ def validate_exposure_data(
         )
 
     return ExposureData(
-        body_weight=float(body_weight),
+        body_weight=float(
+            body_weight
+        ),
         exposure_time=float(
             exposure_time
         ),

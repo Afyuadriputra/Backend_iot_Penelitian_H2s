@@ -16,7 +16,9 @@ class Worker(models.Model):
         max_length=150,
         null=True,
         blank=True,
-        help_text="Nama pemulung/responden.",
+        help_text=(
+            "Nama pemulung/responden."
+        ),
     )
 
     age = models.PositiveSmallIntegerField(
@@ -28,7 +30,8 @@ class Worker(models.Model):
         ],
         help_text=(
             "Usia pemulung/responden dalam tahun. "
-            "Usia bukan parameter langsung rumus ARKL."
+            "Usia digunakan untuk menentukan "
+            "kategori metodologis laju inhalasi."
         ),
     )
 
@@ -61,9 +64,13 @@ class Worker(models.Model):
 
     def __str__(self):
         if self.name:
-            return f"{self.code} - {self.name}"
+            return (
+                f"{self.code} - "
+                f"{self.name}"
+            )
 
         return self.code
+
 
 class ExposureProfile(models.Model):
     worker = models.OneToOneField(
@@ -89,7 +96,8 @@ class ExposureProfile(models.Model):
             MaxValueValidator(24),
         ],
         help_text=(
-            "Waktu pajanan (tE) dalam jam/hari."
+            "Waktu pajanan (tE) "
+            "dalam jam/hari."
         ),
     )
 
@@ -100,7 +108,8 @@ class ExposureProfile(models.Model):
             MaxValueValidator(365),
         ],
         help_text=(
-            "Frekuensi pajanan (fE) dalam hari/tahun."
+            "Frekuensi pajanan (fE) "
+            "dalam hari/tahun."
         ),
     )
 
@@ -110,7 +119,8 @@ class ExposureProfile(models.Model):
             MinValueValidator(0.01),
         ],
         help_text=(
-            "Durasi pajanan (Dt) dalam tahun."
+            "Durasi pajanan (Dt) "
+            "dalam tahun."
         ),
     )
 
@@ -121,8 +131,9 @@ class ExposureProfile(models.Model):
         ],
         help_text=(
             "Laju inhalasi (R) dalam m³/jam. "
-            "Nilai harus mengikuti metodologi "
-            "ARKL yang disetujui."
+            "Nilai ditentukan otomatis berdasarkan "
+            "kategori usia dan metodologi ARKL "
+            "yang disetujui."
         ),
     )
 
@@ -136,6 +147,6 @@ class ExposureProfile(models.Model):
 
     def __str__(self):
         return (
-            f"Exposure Profile - "
+            "Exposure Profile - "
             f"{self.worker.code}"
         )

@@ -1,9 +1,15 @@
+from django.db import transaction
 from rest_framework import serializers
 
 from devices.models import Device
 from exposure.models import (
     ExposureProfile,
     Worker,
+)
+from exposure.services.inhalation import (
+    UnsupportedInhalationMethodologyError,
+    resolve_inhalation_methodology,
+    sync_worker_exposure_inhalation_rate,
 )
 from exposure.services.validation import (
     ExposureValidationError,
@@ -38,9 +44,7 @@ class WorkerSerializer(
 
     monitoring_device_code = (
         serializers.CharField(
-            source=(
-                "monitoring_device.device_code"
-            ),
+            source="monitoring_device.device_code",
             read_only=True,
             allow_null=True,
         )
@@ -101,6 +105,44 @@ class WorkerSerializer(
 
         return value
 
+    @transaction.atomic
+    def update(
+        self,
+        instance,
+        validated_data,
+    ):
+        previous_age = (
+            instance.age
+        )
+
+        worker = super().update(
+            instance,
+            validated_data,
+        )
+
+        age_changed = (
+            "age" in validated_data
+            and worker.age != previous_age
+        )
+
+        if age_changed:
+            try:
+                sync_worker_exposure_inhalation_rate(
+                    worker
+                )
+
+            except (
+                UnsupportedInhalationMethodologyError
+            ) as exc:
+                raise serializers.ValidationError(
+                    {
+                        "age": str(exc),
+                    }
+                ) from exc
+
+        return worker
+
+
 class ExposureProfileSerializer(
     serializers.ModelSerializer
 ):
@@ -113,6 +155,10 @@ class ExposureProfileSerializer(
         source="worker.name",
         read_only=True,
         allow_null=True,
+    )
+
+    inhalation_category = (
+        serializers.SerializerMethodField()
     )
 
     class Meta:
@@ -128,6 +174,7 @@ class ExposureProfileSerializer(
             "exposure_frequency",
             "exposure_duration",
             "inhalation_rate",
+            "inhalation_category",
             "created_at",
             "updated_at",
         ]
@@ -136,12 +183,105 @@ class ExposureProfileSerializer(
             "id",
             "worker_code",
             "worker_name",
+            "inhalation_rate",
+            "inhalation_category",
             "created_at",
             "updated_at",
         ]
 
-    def validate(self, attrs):
+    @staticmethod
+    def _resolve_methodology(
+        worker: Worker,
+    ):
+        if worker.age is None:
+            raise serializers.ValidationError(
+                {
+                    "worker": (
+                        "Worker age is required "
+                        "before creating or updating "
+                        "an exposure profile."
+                    )
+                }
+            )
+
+        try:
+            return (
+                resolve_inhalation_methodology(
+                    worker.age
+                )
+            )
+
+        except (
+            UnsupportedInhalationMethodologyError
+        ) as exc:
+            raise serializers.ValidationError(
+                {
+                    "worker": str(exc),
+                }
+            ) from exc
+
+    def get_inhalation_category(
+        self,
+        obj,
+    ):
+        if obj.worker.age is None:
+            return None
+
+        try:
+            methodology = (
+                resolve_inhalation_methodology(
+                    obj.worker.age
+                )
+            )
+
+        except (
+            UnsupportedInhalationMethodologyError
+        ):
+            return None
+
+        return methodology.category
+
+    def _get_worker(
+        self,
+        attrs,
+    ) -> Worker:
+        if self.instance is not None:
+            return self.instance.worker
+
+        worker = attrs.get(
+            "worker"
+        )
+
+        if worker is None:
+            raise serializers.ValidationError(
+                {
+                    "worker": (
+                        "Worker is required."
+                    )
+                }
+            )
+
+        return worker
+
+    def validate(
+        self,
+        attrs,
+    ):
         instance = self.instance
+
+        worker = self._get_worker(
+            attrs
+        )
+
+        methodology = (
+            self._resolve_methodology(
+                worker
+            )
+        )
+
+        inhalation_rate = float(
+            methodology.inhalation_rate
+        )
 
         values = {
             "body_weight": attrs.get(
@@ -176,13 +316,8 @@ class ExposureProfileSerializer(
                     None,
                 ),
             ),
-            "inhalation_rate": attrs.get(
-                "inhalation_rate",
-                getattr(
-                    instance,
-                    "inhalation_rate",
-                    None,
-                ),
+            "inhalation_rate": (
+                inhalation_rate
             ),
         }
 
@@ -199,3 +334,58 @@ class ExposureProfileSerializer(
             ) from exc
 
         return attrs
+
+    @transaction.atomic
+    def create(
+        self,
+        validated_data,
+    ):
+        worker = (
+            validated_data[
+                "worker"
+            ]
+        )
+
+        methodology = (
+            self._resolve_methodology(
+                worker
+            )
+        )
+
+        return (
+            ExposureProfile.objects.create(
+                **validated_data,
+                inhalation_rate=float(
+                    methodology.inhalation_rate
+                ),
+            )
+        )
+
+    @transaction.atomic
+    def update(
+        self,
+        instance,
+        validated_data,
+    ):
+        methodology = (
+            self._resolve_methodology(
+                instance.worker
+            )
+        )
+
+        for field, value in (
+            validated_data.items()
+        ):
+            setattr(
+                instance,
+                field,
+                value,
+            )
+
+        instance.inhalation_rate = float(
+            methodology.inhalation_rate
+        )
+
+        instance.save()
+
+        return instance
