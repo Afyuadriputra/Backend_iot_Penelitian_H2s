@@ -438,3 +438,68 @@ def calculate_historical_risk(
         ),
         **values,
     )
+
+
+@transaction.atomic
+def calculate_realtime_risk_from_reading(
+    *,
+    worker: Worker,
+    reading: H2SReading,
+) -> ARKLResult:
+    """
+    Calculate REALTIME ARKL using one exact
+    persisted H2SReading.
+
+    Intended for automatic MQTT orchestration.
+    """
+    device = reading.device
+
+    _validate_active_worker(
+        worker
+    )
+
+    _validate_active_device(
+        device
+    )
+
+    exposure_profile = (
+        _get_exposure_profile(
+            worker
+        )
+    )
+
+    _validate_realtime_assignment(
+        worker=worker,
+        device=device,
+    )
+
+    try:
+        values = _calculate_values(
+            concentration_ppm=(
+                reading.ppm
+            ),
+            exposure_profile=(
+                exposure_profile
+            ),
+        )
+    except ARKLValidationError as exc:
+        raise ARKLCalculationError(
+            str(exc)
+        ) from exc
+
+    return ARKLResult.objects.create(
+        worker=worker,
+        reading=reading,
+        calculation_type=(
+            ARKLResult
+            .CalculationType
+            .REALTIME
+        ),
+        calculation_version=(
+            ARKL_CALCULATION_VERSION
+        ),
+        source_simulated=(
+            reading.simulated
+        ),
+        **values,
+    )
