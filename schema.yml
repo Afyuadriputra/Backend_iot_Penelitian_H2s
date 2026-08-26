@@ -1913,9 +1913,12 @@ components:
         inhalation_rate:
           type: number
           format: double
-          minimum: 0.01
-          description: Laju inhalasi (R) dalam m³/jam. Nilai harus mengikuti metodologi
-            ARKL yang disetujui.
+          readOnly: true
+          description: Laju inhalasi (R) dalam m³/jam. Nilai ditentukan otomatis berdasarkan
+            kategori usia dan metodologi ARKL yang disetujui.
+        inhalation_category:
+          type: string
+          readOnly: true
         created_at:
           type: string
           format: date-time
@@ -1931,6 +1934,7 @@ components:
       - exposure_frequency
       - exposure_time
       - id
+      - inhalation_category
       - inhalation_rate
       - updated_at
       - worker
@@ -2159,6 +2163,9 @@ components:
           type: number
           format: double
           readOnly: true
+        inhalation_category:
+          type: string
+          readOnly: true
         created_at:
           type: string
           format: date-time
@@ -2174,6 +2181,7 @@ components:
       - exposure_frequency
       - exposure_time
       - id
+      - inhalation_category
       - inhalation_rate
       - updated_at
       - worker_code
@@ -2444,9 +2452,12 @@ components:
         inhalation_rate:
           type: number
           format: double
-          minimum: 0.01
-          description: Laju inhalasi (R) dalam m³/jam. Nilai harus mengikuti metodologi
-            ARKL yang disetujui.
+          readOnly: true
+          description: Laju inhalasi (R) dalam m³/jam. Nilai ditentukan otomatis berdasarkan
+            kategori usia dan metodologi ARKL yang disetujui.
+        inhalation_category:
+          type: string
+          readOnly: true
         created_at:
           type: string
           format: date-time
@@ -2493,6 +2504,9 @@ components:
         inhalation_rate:
           type: number
           format: double
+          readOnly: true
+        inhalation_category:
+          type: string
           readOnly: true
         created_at:
           type: string
