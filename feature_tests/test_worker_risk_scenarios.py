@@ -21,6 +21,9 @@ from exposure.models import (
     ExposureProfile,
     Worker,
 )
+from exposure.services.inhalation import (
+    resolve_inhalation_methodology,
+)
 
 
 User = get_user_model()
@@ -92,13 +95,18 @@ def make_worker_with_exposure(
     exposure_time=8,
     exposure_frequency=250,
     exposure_duration=10,
-    inhalation_rate="0.83",
 ):
     worker = Worker.objects.create(
         code=code,
         name=name,
         age=age,
         is_active=True,
+    )
+
+    methodology = (
+        resolve_inhalation_methodology(
+            worker.age
+        )
     )
 
     exposure = (
@@ -112,14 +120,13 @@ def make_worker_with_exposure(
             exposure_duration=(
                 exposure_duration
             ),
-            inhalation_rate=Decimal(
-                inhalation_rate
+            inhalation_rate=float(
+                methodology.inhalation_rate
             ),
         )
     )
 
     return worker, exposure
-
 
 def make_device(
     code,
@@ -648,10 +655,6 @@ def test_worker_only_sees_own_risk_data():
             "exposure_duration",
             0,
         ),
-        (
-            "inhalation_rate",
-            0,
-        ),
     ],
 )
 def test_invalid_exposure_data_is_rejected(
@@ -679,10 +682,11 @@ def test_invalid_exposure_data_is_rejected(
         "exposure_time": 8,
         "exposure_frequency": 250,
         "exposure_duration": 10,
-        "inhalation_rate": 0.83,
     }
 
-    payload[field] = invalid_value
+    payload[field] = (
+        invalid_value
+    )
 
     response = operator.post(
         "/api/v1/exposure-profiles/",
@@ -690,7 +694,10 @@ def test_invalid_exposure_data_is_rejected(
         format="json",
     )
 
-    assert response.status_code == 400
+    assert (
+        response.status_code
+        == 400
+    )
 
     assert (
         ExposureProfile.objects
@@ -699,6 +706,71 @@ def test_invalid_exposure_data_is_rejected(
         )
         .exists()
         is False
+    )
+
+
+@pytest.mark.django_db
+def test_client_cannot_override_inhalation_rate():
+    worker = Worker.objects.create(
+        code="PML-INHALATION-OVERRIDE",
+        name="Pemulung Adult",
+        age=40,
+        is_active=True,
+    )
+
+    _, operator = (
+        make_operator_client(
+            username=(
+                "operator-inhalation-override"
+            )
+        )
+    )
+
+    response = operator.post(
+        "/api/v1/exposure-profiles/",
+        {
+            "worker": worker.pk,
+            "body_weight": 55,
+            "exposure_time": 8,
+            "exposure_frequency": 250,
+            "exposure_duration": 10,
+
+            # Client attempts to manipulate
+            # methodological parameter.
+            "inhalation_rate": 0,
+        },
+        format="json",
+    )
+
+    # inhalation_rate is read-only.
+    # The client-provided value must not be used.
+    assert (
+        response.status_code
+        == 201
+    )
+
+    profile = (
+        ExposureProfile.objects.get(
+            worker=worker
+        )
+    )
+
+    assert (
+        profile.inhalation_rate
+        == pytest.approx(
+            0.83
+        )
+    )
+
+    assert (
+        float(
+            response.json()[
+                "inhalation_rate"
+            ]
+        )
+        == pytest.approx(
+            0.83
+        )
     )
 
 
@@ -1390,4 +1462,59 @@ def test_higher_risk_creates_escalated_alert():
     assert (
         authoritative_alert.alert_level
         == "HIGH"
+    )
+
+
+@pytest.mark.django_db
+def test_child_exposure_uses_child_inhalation_rate():
+    worker = Worker.objects.create(
+        code="PML-CHILD-RATE",
+        name="Pemulung Anak",
+        age=10,
+        is_active=True,
+    )
+
+    _, operator = (
+        make_operator_client(
+            username=(
+                "operator-child-rate"
+            )
+        )
+    )
+
+    response = operator.post(
+        "/api/v1/exposure-profiles/",
+        {
+            "worker": worker.pk,
+            "body_weight": 30,
+            "exposure_time": 4,
+            "exposure_frequency": 200,
+            "exposure_duration": 2,
+        },
+        format="json",
+    )
+
+    assert (
+        response.status_code
+        == 201
+    )
+
+    profile = (
+        ExposureProfile.objects.get(
+            worker=worker
+        )
+    )
+
+    assert (
+        profile.inhalation_rate
+        == pytest.approx(
+            0.50
+        )
+    )
+
+    assert (
+        response.json()[
+            "inhalation_category"
+        ]
+        == "CHILD_6_12"
     )
