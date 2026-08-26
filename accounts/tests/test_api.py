@@ -6,6 +6,11 @@ from accounts.models import AccountProfile
 from devices.models import Device, H2SReading
 from exposure.models import Worker
 
+from exposure.models import (
+    ExposureProfile,
+    Worker,
+)
+
 
 @pytest.fixture
 def api_client():
@@ -544,3 +549,171 @@ def test_operator_cannot_access_worker_monitoring(
     )
 
     assert response.status_code == 403
+
+# Worker profile inhalation synchronization
+
+
+@pytest.mark.django_db
+def test_worker_age_change_syncs_inhalation_rate(
+    api_client,
+    worker_user,
+):
+    worker = (
+        worker_user
+        .account_profile
+        .worker
+    )
+
+    worker.age = 40
+    worker.save(
+        update_fields=[
+            "age",
+        ]
+    )
+
+    exposure = (
+        ExposureProfile.objects.create(
+            worker=worker,
+            body_weight=55,
+            exposure_time=8,
+            exposure_frequency=250,
+            exposure_duration=10,
+            inhalation_rate=0.83,
+        )
+    )
+
+    authenticate_client(
+        api_client,
+        worker_user,
+    )
+
+    response = api_client.patch(
+        "/api/v1/me/profile/",
+        {
+            "age": 10,
+        },
+        format="json",
+    )
+
+    assert response.status_code == 200
+
+    worker.refresh_from_db()
+    exposure.refresh_from_db()
+
+    assert worker.age == 10
+
+    assert (
+        exposure.inhalation_rate
+        == pytest.approx(0.50)
+    )
+
+
+@pytest.mark.django_db
+def test_worker_unsupported_age_change_rolls_back(
+    api_client,
+    worker_user,
+):
+    worker = (
+        worker_user
+        .account_profile
+        .worker
+    )
+
+    worker.age = 40
+    worker.save(
+        update_fields=[
+            "age",
+        ]
+    )
+
+    exposure = (
+        ExposureProfile.objects.create(
+            worker=worker,
+            body_weight=55,
+            exposure_time=8,
+            exposure_frequency=250,
+            exposure_duration=10,
+            inhalation_rate=0.83,
+        )
+    )
+
+    authenticate_client(
+        api_client,
+        worker_user,
+    )
+
+    response = api_client.patch(
+        "/api/v1/me/profile/",
+        {
+            "age": 15,
+        },
+        format="json",
+    )
+
+    assert response.status_code == 400
+
+    worker.refresh_from_db()
+    exposure.refresh_from_db()
+
+    assert worker.age == 40
+
+    assert (
+        exposure.inhalation_rate
+        == pytest.approx(0.83)
+    )
+
+    assert (
+        "age"
+
+        in response.json()
+    )
+
+@pytest.mark.django_db
+def test_worker_exposure_returns_inhalation_methodology(
+    api_client,
+    worker_user,
+):
+    worker = (
+        worker_user
+        .account_profile
+        .worker
+    )
+
+    worker.age = 40
+    worker.save(
+        update_fields=[
+            "age",
+        ]
+    )
+
+    ExposureProfile.objects.create(
+        worker=worker,
+        body_weight=55,
+        exposure_time=8,
+        exposure_frequency=250,
+        exposure_duration=10,
+        inhalation_rate=0.83,
+    )
+
+    authenticate_client(
+        api_client,
+        worker_user,
+    )
+
+    response = api_client.get(
+        "/api/v1/me/exposure/"
+    )
+
+    assert response.status_code == 200
+
+    data = response.json()
+
+    assert (
+        data["inhalation_rate"]
+        == pytest.approx(0.83)
+    )
+
+    assert (
+        data["inhalation_category"]
+        == "ADULT"
+    )

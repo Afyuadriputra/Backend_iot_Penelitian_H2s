@@ -3,6 +3,14 @@ from django.contrib.auth import (
     get_user_model,
 )
 
+from django.db import transaction
+
+from exposure.services.inhalation import (
+    UnsupportedInhalationMethodologyError,
+    resolve_inhalation_methodology,
+    sync_worker_exposure_inhalation_rate,
+)
+
 from devices.serializers import (
     DeviceSerializer,
     H2SReadingSerializer,
@@ -361,6 +369,42 @@ class MyWorkerProfileSerializer(
 
         return value
 
+    @transaction.atomic
+    def update(
+        self,
+        instance,
+        validated_data,
+    ):
+        previous_age = (
+            instance.age
+        )
+
+        worker = super().update(
+            instance,
+            validated_data,
+        )
+
+        age_changed = (
+            "age" in validated_data
+            and worker.age != previous_age
+        )
+
+        if age_changed:
+            try:
+                sync_worker_exposure_inhalation_rate(
+                    worker
+                )
+
+            except (
+                UnsupportedInhalationMethodologyError
+            ) as exc:
+                raise serializers.ValidationError(
+                    {
+                        "age": str(exc),
+                    }
+                ) from exc
+
+        return worker
 
 class MyExposureProfileSerializer(
     serializers.ModelSerializer
@@ -376,10 +420,14 @@ class MyExposureProfileSerializer(
         allow_null=True,
     )
 
-    # WORKER tidak boleh menentukan sendiri
-    # parameter metodologi ini.
-    inhalation_rate = serializers.FloatField(
-        read_only=True,
+    inhalation_rate = (
+        serializers.FloatField(
+            read_only=True,
+        )
+    )
+
+    inhalation_category = (
+        serializers.SerializerMethodField()
     )
 
     class Meta:
@@ -394,6 +442,7 @@ class MyExposureProfileSerializer(
             "exposure_frequency",
             "exposure_duration",
             "inhalation_rate",
+            "inhalation_category",
             "created_at",
             "updated_at",
         ]
@@ -403,11 +452,36 @@ class MyExposureProfileSerializer(
             "worker_code",
             "worker_name",
             "inhalation_rate",
+            "inhalation_category",
             "created_at",
             "updated_at",
         ]
 
-    def validate(self, attrs):
+    def get_inhalation_category(
+        self,
+        obj,
+    ):
+        if obj.worker.age is None:
+            return None
+
+        try:
+            methodology = (
+                resolve_inhalation_methodology(
+                    obj.worker.age
+                )
+            )
+
+        except (
+            UnsupportedInhalationMethodologyError
+        ):
+            return None
+
+        return methodology.category
+
+    def validate(
+        self,
+        attrs,
+    ):
         instance = self.instance
 
         if instance is None:
@@ -425,18 +499,22 @@ class MyExposureProfileSerializer(
                 "body_weight",
                 instance.body_weight,
             ),
+
             "exposure_time": attrs.get(
                 "exposure_time",
                 instance.exposure_time,
             ),
+
             "exposure_frequency": attrs.get(
                 "exposure_frequency",
                 instance.exposure_frequency,
             ),
+
             "exposure_duration": attrs.get(
                 "exposure_duration",
                 instance.exposure_duration,
             ),
+
             "inhalation_rate": (
                 instance.inhalation_rate
             ),
@@ -446,6 +524,7 @@ class MyExposureProfileSerializer(
             validate_exposure_data(
                 **values
             )
+
         except ExposureValidationError as exc:
             raise serializers.ValidationError(
                 {
@@ -455,6 +534,7 @@ class MyExposureProfileSerializer(
 
         return attrs
 
+    
 class MyMonitoringSerializer(
     serializers.Serializer
 ):
